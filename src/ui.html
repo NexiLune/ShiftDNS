@@ -1,0 +1,2155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ShiftDNS</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --font-sans: "IBM Plex Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: "IBM Plex Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+    --ease-unslop: cubic-bezier(0.22, 1, 0.36, 1);
+
+    --bg: #0E1012;
+    --chrome-bg: #0B0D10;
+    --text: #EDF0F5;
+    --text-muted: #7C8594;
+    --text-sub: #64748B;
+    --text-soft: #94A3B8;
+    --text-footer: #6B7485;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-outer: #22252A;
+    --active-bg: #15181E;
+    --hover-bg: #12151B;
+    --icon-hover-bg: #15181E;
+    --action-hover-bg: #1E232D;
+    --accent: #10B981;
+    --accent-hover: #0EA572;
+    --accent-btn-text: #0B0E11;
+    --fast: #34D399;
+    --medium: #8B95A5;
+    --slow: #FBBF24;
+    --timeout: #F87171;
+    --input-bg: #15181E;
+    --input-focus-bg: #181C24;
+    --input-border: rgba(255, 255, 255, 0.08);
+    --input-placeholder: #64748B;
+    --checkbox-border: rgba(255, 255, 255, 0.25);
+    --shield-fill: rgba(255, 255, 255, 0.1);
+    --kb-ring: rgba(255, 255, 255, 0.25);
+    --scroll-thumb: rgba(255, 255, 255, 0.08);
+    --scroll-thumb-hover: rgba(255, 255, 255, 0.22);
+    --scroll-thumb-active: rgba(255, 255, 255, 0.36);
+    --pill-hover: rgba(255, 255, 255, 0.06);
+  }
+
+  html.light {
+    --bg: #FFFFFF;
+    --chrome-bg: #F6F7F9;
+    --text: #171717;
+    --text-muted: #737373;
+    --text-sub: #737373;
+    --text-soft: #525252;
+    --text-footer: #737373;
+    --border: rgba(23, 23, 23, 0.06);
+    --border-outer: #E5E5E5;
+    --active-bg: #F0F7F4;
+    --hover-bg: #F7F8FA;
+    --icon-hover-bg: #EAECEF;
+    --action-hover-bg: #EAECEF;
+    --accent: #059669;
+    --accent-hover: #047857;
+    --accent-btn-text: #FFFFFF;
+    --fast: #059669;
+    --medium: #525252;
+    --slow: #B45309;
+    --timeout: #DC2626;
+    --input-bg: #F6F7F9;
+    --input-focus-bg: #FFFFFF;
+    --input-border: rgba(23, 23, 23, 0.08);
+    --input-placeholder: #9CA3AF;
+    --checkbox-border: rgba(23, 23, 23, 0.28);
+    --shield-fill: rgba(23, 23, 23, 0.08);
+    --kb-ring: rgba(23, 23, 23, 0.2);
+    --scroll-thumb: rgba(23, 23, 23, 0.08);
+    --scroll-thumb-hover: rgba(23, 23, 23, 0.22);
+    --scroll-thumb-active: rgba(23, 23, 23, 0.34);
+    --pill-hover: rgba(23, 23, 23, 0.06);
+  }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  .app-shell {
+    width: 100%;
+    height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border-outer);
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transform-origin: center center;
+    will-change: opacity, transform;
+    transition:
+      opacity 130ms cubic-bezier(0.2, 0, 0, 1),
+      transform 130ms cubic-bezier(0.2, 0, 0, 1),
+      background-color 150ms var(--ease-unslop),
+      color 150ms var(--ease-unslop),
+      border-color 150ms var(--ease-unslop);
+  }
+
+  #main-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .app-shell.win-hidden {
+    opacity: 0;
+    transform: scale(0.98);
+    pointer-events: none;
+  }
+
+  .app-shell.win-no-transition {
+    transition: none !important;
+  }
+
+  html.suspend-hover .icon-btn:hover {
+    color: var(--text-muted);
+    background: transparent;
+  }
+  html.suspend-hover .back-btn:hover { background: transparent; }
+  html.suspend-hover .dns-row:not(.active):hover { background: transparent; }
+  html.suspend-hover .dns-row:hover .grip-icon { opacity: 0; }
+  html.suspend-hover .dns-row:hover .row-actions { opacity: 0; pointer-events: none; }
+  html.suspend-hover .dns-row:hover .row-status { opacity: 1; pointer-events: auto; }
+  html.suspend-hover .settings-add-row:hover,
+  html.suspend-hover .settings-check-row:hover { background: transparent; }
+  html.suspend-hover .restore-btn:hover { color: var(--text-soft); background: transparent; }
+  html.suspend-hover .adapter-pill:hover { background: transparent; }
+  html.suspend-hover .adapter-pill:hover .adapter-text { color: var(--text-soft); }
+  html.suspend-hover .tooltip { opacity: 0 !important; }
+
+  /* Titlebar */
+  .titlebar {
+    height: 44px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    background: var(--chrome-bg);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .title-left {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .shield-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--text-soft);
+    fill: var(--shield-fill);
+  }
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: -6px;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 150ms var(--ease-unslop);
+  }
+
+  .back-btn:hover { background: var(--icon-hover-bg); }
+  .back-btn svg { width: 16px; height: 16px; color: var(--text-soft); }
+
+  .drag-spacer {
+    flex: 1;
+    height: 100%;
+    min-width: 20px;
+  }
+
+  .title-controls {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .icon-btn-wrap {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .icon-btn {
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 150ms var(--ease-unslop), background-color 150ms var(--ease-unslop);
+  }
+
+  .icon-btn:hover {
+    color: var(--text);
+    background: var(--icon-hover-bg);
+  }
+
+  .icon-btn:active { transform: scale(0.95); }
+  .icon-btn:focus-visible { outline: 1px solid var(--kb-ring); }
+  .icon-btn svg { width: 15px; height: 15px; }
+
+  /* Tooltip: initial={{ opacity: 0, y: 3, scale: 0.96 }} -> animate={{ opacity: 1, y: 0, scale: 1 }}, 120ms cubic-bezier(0.22, 1, 0.36, 1) */
+  .tooltip {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%) translateY(3px) scale(0.96);
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: #14171D;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    color: #EDF0F5;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.48);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 40;
+    transition: opacity 120ms var(--ease-unslop), transform 120ms var(--ease-unslop);
+  }
+
+  .tooltip.right {
+    left: auto;
+    right: 0;
+    transform: translateY(3px) scale(0.96);
+  }
+
+  .tooltip.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+
+  .tooltip.right.show {
+    transform: translateY(0) scale(1);
+  }
+
+  /* View panel transitions: initial={{ opacity: 0, y: 4 }}, animate={{ opacity: 1, y: 0 }}, exit={{ opacity: 0, y: -4 }}, duration: 0.15 */
+  .view-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: opacity 150ms ease, transform 150ms ease;
+  }
+
+  .view-panel.view-pre-enter {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  .view-panel.view-exiting {
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+  }
+
+  /* Checkmark transitions: initial={{ opacity: 0, scale: 0.8 }}, animate={{ opacity: 1, scale: 1 }}, duration: 0.15 */
+  .check-badge {
+    display: inline-flex;
+    flex-shrink: 0;
+    transition: opacity 150ms ease, transform 150ms ease;
+  }
+
+  .check-badge.check-pre-enter {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+
+  /* Minimal Smooth Scroll Containers (DNS List = DHCP + 3 rows, Settings, Add DNS Form) */
+  .dns-list,
+  .settings-scroll,
+  .form-scroll {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scroll-behavior: smooth;
+    padding-bottom: 0;
+  }
+
+  .settings-scroll {
+    padding-bottom: 6px;
+  }
+
+  .form-scroll {
+    padding-bottom: 0;
+  }
+
+  .scroll-fade.fade-bottom {
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0%, #000 calc(100% - 28px), transparent 100%);
+  }
+
+  .scroll-fade.fade-top {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 24px, #000 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 24px, #000 100%);
+  }
+
+  .scroll-fade.fade-top.fade-bottom {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 24px, #000 calc(100% - 28px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 24px, #000 calc(100% - 28px), transparent 100%);
+  }
+
+  @supports (-moz-appearance: none) {
+    .dns-list,
+    .settings-scroll,
+    .form-scroll {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+    }
+    html.light .dns-list,
+    html.light .settings-scroll,
+    html.light .form-scroll {
+      scrollbar-color: rgba(23, 23, 23, 0.14) transparent;
+    }
+  }
+
+  .dns-list::-webkit-scrollbar,
+  .settings-scroll::-webkit-scrollbar,
+  .form-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+  .dns-list::-webkit-scrollbar-track,
+  .settings-scroll::-webkit-scrollbar-track,
+  .form-scroll::-webkit-scrollbar-track { background: transparent; }
+  .dns-list::-webkit-scrollbar-button,
+  .settings-scroll::-webkit-scrollbar-button,
+  .form-scroll::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  .dns-list::-webkit-scrollbar-thumb,
+  .settings-scroll::-webkit-scrollbar-thumb,
+  .form-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--scroll-thumb);
+    border-radius: 9999px;
+  }
+  .dns-list:hover::-webkit-scrollbar-thumb,
+  .settings-scroll:hover::-webkit-scrollbar-thumb,
+  .form-scroll:hover::-webkit-scrollbar-thumb { background-color: var(--scroll-thumb-hover); }
+  .dns-list::-webkit-scrollbar-thumb:hover,
+  .settings-scroll::-webkit-scrollbar-thumb:hover,
+  .form-scroll::-webkit-scrollbar-thumb:hover { background-color: var(--scroll-thumb-active); }
+
+  .dns-row {
+    position: relative;
+    width: 100%;
+    height: 51px;
+    min-height: 51px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    transition: background-color 150ms ease;
+  }
+
+  .dns-row.last-row {
+    border-bottom: 0;
+    height: 50px;
+    min-height: 50px;
+  }
+  .dns-row.active { background: var(--active-bg); }
+  .dns-row:not(.active):hover { background: var(--hover-bg); }
+  .dns-row.kb-focused {
+    box-shadow: inset 0 0 0 1px var(--kb-ring);
+    background: var(--hover-bg);
+  }
+  .dns-row.dragging {
+    position: relative;
+    background: var(--active-bg);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+    z-index: 25;
+    transition: none;
+    will-change: transform;
+    pointer-events: none;
+  }
+
+  html.light .dns-row.dragging {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  }
+
+  .dns-row.drag-neighbor {
+    transition: transform 200ms cubic-bezier(0.2, 0, 0, 1);
+    will-change: transform;
+  }
+
+  .dns-list.is-dragging .dns-row:not(.dragging):hover {
+    background: transparent;
+  }
+  .dns-list.is-dragging .dns-row:not(.dragging):hover .row-actions {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .dns-list.is-dragging .dns-row:not(.dragging):hover .row-status {
+    opacity: 1;
+  }
+  .dns-list.is-dragging .dns-row:not(.dragging):hover .grip-icon {
+    opacity: 0;
+  }
+
+  .active-bar {
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 2.5px;
+    border-radius: 0 9999px 9999px 0;
+    background: var(--accent);
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  .dhcp-btn {
+    width: 100%;
+    height: 100%;
+    padding: 7px 16px 7px 20px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .row-main-btn {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 7px 8px 7px 20px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    text-align: left;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .row-main-btn:active { cursor: grabbing; }
+  .row-main-btn:focus, .dhcp-btn:focus { outline: none; }
+
+  .grip-icon {
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 12px;
+    color: var(--text-muted);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+  }
+
+  @media (hover: hover) {
+    .dns-row:hover .grip-icon { opacity: 0.55; }
+  }
+
+  .row-info { min-width: 0; flex: 1; }
+
+  .row-title-line {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .row-name {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .row-cat {
+    font-size: 11px;
+    line-height: 15px;
+    font-weight: 400;
+    color: var(--text-sub);
+    flex-shrink: 0;
+  }
+
+  .row-ips {
+    font-size: 12px;
+    line-height: 16px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 1px;
+  }
+
+  .row-right {
+    position: relative;
+    padding-right: 16px;
+    display: inline-grid;
+    align-items: center;
+    justify-items: end;
+    flex-shrink: 0;
+  }
+
+  .row-actions, .row-status {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: end;
+    display: flex;
+    align-items: center;
+  }
+
+  .row-actions {
+    gap: 2px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+  }
+
+  .row-status {
+    gap: 6px;
+    opacity: 1;
+    pointer-events: auto;
+    transition: opacity 150ms ease;
+  }
+
+  @media (hover: hover) {
+    .dns-row:hover .row-actions {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .dns-row:hover .row-status {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+
+  .dns-row:has(.row-actions:focus-within) .row-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .dns-row:has(.row-actions:focus-within) .row-status {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .action-btn {
+    padding: 6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 150ms ease, background-color 150ms ease;
+  }
+
+  .action-btn:hover {
+    color: var(--text);
+    background: var(--action-hover-bg);
+  }
+
+  .action-btn.delete:hover { color: #ef4444; }
+  .action-btn svg { width: 14px; height: 14px; }
+
+  .ping-btn {
+    padding: 2px 6px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+
+  .ping-btn:hover { background: var(--pill-hover); }
+  .ping-fast { color: var(--fast); }
+  .ping-medium { color: var(--medium); }
+  .ping-slow { color: var(--slow); }
+  .ping-timeout { color: var(--timeout); }
+  .ping-none { color: var(--text-muted); }
+
+  .check-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* Empty State */
+  .empty-state {
+    padding: 32px 16px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  .empty-state p { margin-bottom: 12px; }
+
+  .empty-restore-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--input-bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .empty-restore-btn:hover { background: var(--action-hover-bg); }
+  .empty-restore-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  /* Settings View */
+  .settings-add-row {
+    width: 100%;
+    padding: 12px 16px;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+  }
+
+  .settings-add-row:hover { background: var(--hover-bg); }
+
+  .settings-add-left {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 500;
+  }
+
+  .settings-add-left svg { width: 16px; height: 16px; color: var(--text-soft); }
+  .settings-chevron { width: 14px; height: 14px; color: var(--text-sub); }
+
+  .settings-check-row {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    transition: background-color 150ms ease;
+  }
+
+  .settings-check-row:hover { background: var(--hover-bg); }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+  }
+
+  .custom-checkbox {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--checkbox-border);
+    background: transparent;
+    transition: background-color 150ms ease, border-color 150ms ease;
+  }
+
+  .custom-checkbox.checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .custom-checkbox svg { width: 12px; height: 12px; color: #FFFFFF; }
+
+  .settings-footer-action {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+  }
+
+  .restore-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 -8px;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-soft);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 150ms ease, background-color 150ms ease;
+  }
+
+  .restore-btn:hover {
+    color: var(--text);
+    background: var(--icon-hover-bg);
+  }
+  .restore-btn svg { width: 16px; height: 16px; }
+
+  /* Add / Edit DNS Inline Form */
+  .dns-form {
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-row-2fr-1fr {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 10px;
+  }
+
+  .form-row-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .field-label-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .field-label {
+    display: block;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    color: var(--text-soft);
+  }
+
+  .field-label.mb { margin-bottom: 4px; }
+
+  .field-opt {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-footer);
+  }
+
+  .field-input, .field-select {
+    width: 100%;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--input-border);
+    border-radius: 8px;
+    background: var(--input-bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+
+  .field-input.mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .field-input::placeholder { color: var(--input-placeholder); }
+
+  .field-input:focus, .field-select:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--input-focus-bg);
+  }
+
+  .select-wrap { position: relative; }
+
+  .field-select {
+    appearance: none;
+    padding-right: 26px;
+    cursor: pointer;
+  }
+
+  html:not(.light) .field-select,
+  html:not(.light) .field-input {
+    color-scheme: dark;
+  }
+
+  .select-chevron {
+    position: absolute;
+    right: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    color: var(--text-muted);
+    pointer-events: none;
+  }
+
+  .adv-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    border: 0;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: color 150ms ease;
+  }
+
+  .adv-toggle-btn:hover { color: var(--text); }
+  .adv-toggle-btn svg { width: 14px; height: 14px; }
+
+  .adv-fields {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .form-error {
+    font-size: 12px;
+    font-weight: 500;
+    color: #ef4444;
+  }
+
+  .save-btn {
+    width: 100%;
+    height: 32px;
+    padding: 0 16px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-btn-text);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 150ms var(--ease-unslop), color 150ms var(--ease-unslop);
+  }
+
+  .save-btn:hover { background: var(--accent-hover); }
+  .save-btn:active { transform: scale(0.99); }
+
+  /* Status Footer */
+  .status-bar {
+    height: 36px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--chrome-bg);
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .adapter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 55%;
+    flex-shrink: 1;
+    padding: 3px 6px;
+    margin-left: -6px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 150ms var(--ease-unslop), color 150ms var(--ease-unslop);
+  }
+
+  .adapter-pill:hover {
+    background: var(--icon-hover-bg);
+  }
+
+  .adapter-pill:focus-visible {
+    outline: 1px solid var(--kb-ring);
+  }
+
+  .adapter-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+
+  .adapter-text {
+    color: var(--text-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color 150ms var(--ease-unslop);
+  }
+
+  .adapter-pill:hover .adapter-text {
+    color: var(--text);
+  }
+
+  .status-msg-wrap {
+    min-width: 0;
+    overflow: hidden;
+    text-align: right;
+  }
+
+  /* Footer status message: initial={{ opacity: 0, y: 3 }}, animate={{ opacity: 1, y: 0 }}, exit={{ opacity: 0, y: -3 }}, 150ms cubic-bezier(0.22, 1, 0.36, 1) */
+  .status-msg {
+    color: var(--text-footer);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: opacity 150ms var(--ease-unslop), transform 150ms var(--ease-unslop);
+  }
+
+  .status-msg.status-pre-enter {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  .status-msg.status-exiting {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+
+  .status-msg.error { color: #f87171; }
+</style>
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+  <!-- Unified Title Bar -->
+  <header class="titlebar" id="titlebar">
+    <div class="title-left" id="title-left"></div>
+    <div class="drag-spacer" id="drag-spacer"></div>
+    <div class="title-controls" id="title-controls"></div>
+  </header>
+
+  <!-- Main Content Body -->
+  <main id="main-body"></main>
+
+  <!-- Footer Adapter & Status Bar -->
+  <footer class="status-bar" aria-live="polite">
+    <button
+      type="button"
+      class="adapter-pill"
+      id="btn-adapter"
+      title="Click to switch network adapter (Auto ↔ available adapters)"
+      aria-label="Switch network adapter"
+    >
+      <span class="adapter-dot" aria-hidden="true"></span>
+      <span class="adapter-text" id="adapter-label">Auto (Wi-Fi) · Admin</span>
+    </button>
+    <div class="status-msg-wrap">
+      <div class="status-msg" id="status-message">System Default (DHCP)</div>
+    </div>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const ICONS = {
+    shield: `<svg class="shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>`,
+    settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    minus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg>`,
+    x: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
+    arrowLeft: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
+    plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`,
+    chevronRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`,
+    chevronDown: `<svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`,
+    check: `<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`,
+    checkSmall: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`,
+    rotateCcw: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`,
+    pencil: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`,
+    trash2: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
+    grip: `<svg class="grip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>`
+  };
+
+  const DHCP_ID = '__dhcp__';
+  const CATEGORIES = ['Custom', 'Privacy', 'Ad-Block', 'Security', 'Speed', 'Family'];
+
+  const appState = {
+    profiles: [],
+    activeProfileId: null,
+    darkMode: true,
+    enableIpv6: true,
+    enableDoh: false,
+    startMinimized: false,
+    launchAtStartup: false,
+    adapterLabel: 'Auto (Wi-Fi) · Admin',
+    activeLatency: undefined, // undefined = not probed, null = timeout, number = ms
+    probingActive: false,
+    statusMessage: 'System Default (DHCP)',
+    statusIsError: false,
+  };
+
+  let viewMode = 'servers'; // 'servers' | 'settings' | 'add-dns'
+  let formReturnView = 'servers';
+  let editingProfile = null;
+  let showAdvanced = false;
+  let formError = null;
+  let focusedNavId = null;
+  let draggingState = null;
+  let suppressDragClickUntil = 0;
+  let pendingSyncPayload = null;
+
+  function postIpc(msg) {
+    if (window.ipc && typeof window.ipc.postMessage === 'function') {
+      window.ipc.postMessage(JSON.stringify(msg));
+    }
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function pinActiveFirst(profiles, activeId) {
+    if (!activeId) return profiles;
+    const idx = profiles.findIndex((p) => p.id === activeId);
+    if (idx <= 0) return profiles;
+    return [profiles[idx], ...profiles.slice(0, idx), ...profiles.slice(idx + 1)];
+  }
+
+  function formatCategory(cat) {
+    return cat === 'Ad-Block' ? 'Ad-block' : cat;
+  }
+
+  function latencyInfo(ms, probing) {
+    if (probing || ms === undefined) return { text: '...', cls: 'ping-none' };
+    if (ms === null) return { text: 'Timeout', cls: 'ping-timeout' };
+    if (ms <= 18) return { text: `${ms} ms`, cls: 'ping-fast' };
+    if (ms <= 27) return { text: `${ms} ms`, cls: 'ping-medium' };
+    return { text: `${ms} ms`, cls: 'ping-slow' };
+  }
+
+  function applyTheme() {
+    document.documentElement.classList.toggle('light', !appState.darkMode);
+  }
+
+  const activeTooltipHiders = new Set();
+
+  function clearHoverAndTooltipState() {
+    activeTooltipHiders.forEach((hide) => hide());
+    document.querySelectorAll('.tooltip.show').forEach((el) => el.classList.remove('show'));
+    document.documentElement.classList.add('suspend-hover');
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+  }
+
+  document.addEventListener(
+    'pointermove',
+    () => {
+      document.documentElement.classList.remove('suspend-hover');
+    },
+    { passive: true }
+  );
+
+  window.addEventListener('blur', clearHoverAndTooltipState);
+
+  let pendingHideCleanup = null;
+
+  function cancelPendingHide() {
+    if (pendingHideCleanup) {
+      pendingHideCleanup();
+      pendingHideCleanup = null;
+    }
+  }
+
+  function animateHideAndPost() {
+    const shell = document.getElementById('app-shell');
+    clearHoverAndTooltipState();
+    postIpc({ type: 'beginHide' });
+
+    if (!shell) {
+      postIpc({ type: 'hideWindow' });
+      return;
+    }
+
+    if (shell.classList.contains('win-hidden')) {
+      cancelPendingHide();
+      postIpc({ type: 'hideWindow' });
+      return;
+    }
+
+    if (pendingHideCleanup) return;
+
+    let done = false;
+    let fallbackTimer = null;
+
+    const cleanup = () => {
+      shell.removeEventListener('transitionend', onEnd);
+      if (fallbackTimer !== null) {
+        clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
+      pendingHideCleanup = null;
+    };
+
+    const complete = () => {
+      if (done) return;
+      done = true;
+      cleanup();
+      postIpc({ type: 'hideWindow' });
+    };
+
+    const onEnd = (ev) => {
+      if (ev.target === shell && (ev.propertyName === 'opacity' || ev.propertyName === 'transform')) {
+        complete();
+      }
+    };
+
+    pendingHideCleanup = () => {
+      done = true;
+      cleanup();
+    };
+
+    shell.classList.remove('win-no-transition');
+    void shell.offsetWidth;
+    shell.addEventListener('transitionend', onEnd);
+    fallbackTimer = setTimeout(complete, 175);
+    shell.classList.add('win-hidden');
+  }
+
+  window.__shiftdnsPrepareShow = function () {
+    cancelPendingHide();
+    clearHoverAndTooltipState();
+    const shell = document.getElementById('app-shell');
+    if (!shell) return;
+    shell.classList.add('win-no-transition', 'win-hidden');
+    void shell.offsetWidth;
+  };
+
+  window.__shiftdnsAnimateShow = function () {
+    clearHoverAndTooltipState();
+    const shell = document.getElementById('app-shell');
+    if (!shell) return;
+    shell.classList.add('win-no-transition', 'win-hidden');
+    void shell.offsetWidth;
+    requestAnimationFrame(() => {
+      shell.classList.remove('win-no-transition');
+      void shell.offsetWidth;
+      shell.classList.remove('win-hidden');
+    });
+  };
+
+  window.__shiftdnsAnimateHide = function () {
+    animateHideAndPost();
+  };
+
+  function attachTooltipBehavior(btnWrap, tooltipEl) {
+    let timer = null;
+    const btn = btnWrap.querySelector('button');
+    const show = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!document.documentElement.classList.contains('suspend-hover')) {
+          tooltipEl.classList.add('show');
+        }
+      }, 150);
+    };
+    const hide = () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      tooltipEl.classList.remove('show');
+    };
+    activeTooltipHiders.add(hide);
+    btnWrap.addEventListener('mouseenter', show);
+    btnWrap.addEventListener('mouseleave', hide);
+    btn.addEventListener('focus', show);
+    btn.addEventListener('blur', hide);
+  }
+
+  function renderHeader() {
+    const left = document.getElementById('title-left');
+    const controls = document.getElementById('title-controls');
+    activeTooltipHiders.clear();
+
+    if (viewMode === 'settings') {
+      left.innerHTML = `<button type="button" class="back-btn" id="btn-back" aria-label="Back to DNS servers">${ICONS.arrowLeft}<span>Settings</span></button>`;
+      document.getElementById('btn-back').onclick = () => {
+        transitionView('servers');
+      };
+    } else if (viewMode === 'add-dns') {
+      const label = editingProfile ? 'Edit DNS' : 'Add DNS';
+      left.innerHTML = `<button type="button" class="back-btn" id="btn-back" aria-label="Back to DNS servers">${ICONS.arrowLeft}<span>${label}</span></button>`;
+      document.getElementById('btn-back').onclick = () => {
+        const target = formReturnView;
+        transitionView(target, () => {
+          editingProfile = null;
+          formError = null;
+        });
+      };
+    } else {
+      left.innerHTML = `<div class="brand">${ICONS.shield}<span>ShiftDNS</span></div>`;
+    }
+
+    controls.innerHTML = '';
+    const addControl = (id, label, tooltip, iconHtml, alignRight, onClick) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'icon-btn-wrap';
+      wrap.innerHTML = `<button type="button" class="icon-btn" id="${id}" aria-label="${escHtml(label)}">${iconHtml}</button><div role="tooltip" class="tooltip ${alignRight ? 'right' : ''}">${escHtml(tooltip)}</div>`;
+      wrap.querySelector('button').onclick = onClick;
+      attachTooltipBehavior(wrap, wrap.querySelector('.tooltip'));
+      controls.appendChild(wrap);
+    };
+
+    if (viewMode === 'servers') {
+      addControl('btn-settings', 'Settings', 'Settings', ICONS.settings, false, () => {
+        transitionView('settings');
+      });
+    }
+    addControl('btn-min', 'Minimize ShiftDNS window to system tray', 'Minimize to tray', ICONS.minus, true, () => {
+      animateHideAndPost();
+    });
+    addControl('btn-close', 'Close ShiftDNS window to system tray', 'Close to tray (Esc)', ICONS.x, true, () => {
+      animateHideAndPost();
+    });
+  }
+
+  let lastStatusMessage = null;
+  let statusAnimTimer = null;
+
+  function renderFooter() {
+    document.getElementById('adapter-label').textContent = appState.adapterLabel;
+    const statusEl = document.getElementById('status-message');
+    const nextMsg = appState.statusMessage;
+    const baseCls = 'status-msg' + (appState.statusIsError ? ' error' : '');
+
+    if (lastStatusMessage === null) {
+      lastStatusMessage = nextMsg;
+      statusEl.textContent = nextMsg;
+      statusEl.className = baseCls;
+      return;
+    }
+
+    if (nextMsg !== lastStatusMessage) {
+      lastStatusMessage = nextMsg;
+      if (statusAnimTimer) clearTimeout(statusAnimTimer);
+      statusEl.className = `${baseCls} status-exiting`;
+      statusAnimTimer = setTimeout(() => {
+        statusAnimTimer = null;
+        statusEl.textContent = appState.statusMessage;
+        const enteredCls = 'status-msg' + (appState.statusIsError ? ' error' : '');
+        statusEl.className = `${enteredCls} status-pre-enter`;
+        void statusEl.offsetWidth;
+        requestAnimationFrame(() => {
+          statusEl.className = enteredCls;
+        });
+      }, 150);
+    } else if (!statusAnimTimer) {
+      statusEl.className = baseCls;
+    }
+  }
+
+  let viewTransitionTimer = null;
+  let lastActiveProfileId = null;
+
+  function transitionView(nextView, beforeEnter) {
+    if (viewTransitionTimer) {
+      clearTimeout(viewTransitionTimer);
+      viewTransitionTimer = null;
+    }
+    const main = document.getElementById('main-body');
+    const currentChild = main && main.firstElementChild;
+    if (currentChild) {
+      currentChild.classList.add('view-exiting');
+      viewTransitionTimer = setTimeout(() => {
+        viewTransitionTimer = null;
+        if (beforeEnter) beforeEnter();
+        viewMode = nextView;
+        renderAll(true);
+      }, 150);
+    } else {
+      if (beforeEnter) beforeEnter();
+      viewMode = nextView;
+      renderAll(true);
+    }
+  }
+
+  function renderBody(animateView) {
+    const main = document.getElementById('main-body');
+    const prevList = document.getElementById('dns-list');
+    const prevScroll = prevList ? prevList.scrollTop : 0;
+
+    // Capture FLIP geometry before updating servers view
+    const prevRowTops = new Map();
+    let prevBarTop = null;
+    if (prevList && viewMode === 'servers') {
+      prevList.querySelectorAll('.dns-row[data-nav-id]').forEach((el) => {
+        prevRowTops.set(el.dataset.navId, el.getBoundingClientRect().top);
+      });
+      const prevBar = prevList.querySelector('.active-bar');
+      if (prevBar) prevBarTop = prevBar.getBoundingClientRect().top;
+    }
+
+    if (viewMode === 'settings') {
+      renderSettingsView(main, animateView);
+    } else if (viewMode === 'add-dns') {
+      renderFormView(main, animateView);
+    } else {
+      renderServersView(main, animateView, prevScroll, prevRowTops, prevBarTop);
+    }
+  }
+
+  function mountViewPanel(main, wrap, animateView) {
+    wrap.className = animateView ? 'view-panel view-pre-enter' : 'view-panel';
+    main.replaceChildren(wrap);
+    if (animateView) {
+      void wrap.offsetWidth;
+      requestAnimationFrame(() => {
+        wrap.classList.remove('view-pre-enter');
+      });
+    }
+  }
+
+  function updateScrollFade(el) {
+    if (!el) return;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    const hasOverflow = maxScroll > 2;
+    const showTop = hasOverflow && el.scrollTop > 2;
+    const showBottom = hasOverflow && el.scrollTop < maxScroll - 2;
+    el.classList.toggle('fade-top', showTop);
+    el.classList.toggle('fade-bottom', showBottom);
+  }
+
+  let activeScrollObserver = null;
+  function attachScrollFade(el) {
+    if (activeScrollObserver) {
+      activeScrollObserver.disconnect();
+      activeScrollObserver = null;
+    }
+    if (!el) return;
+    const sync = () => updateScrollFade(el);
+    el.addEventListener('scroll', sync, { passive: true });
+    if (typeof ResizeObserver === 'function') {
+      activeScrollObserver = new ResizeObserver(sync);
+      activeScrollObserver.observe(el);
+      if (el.firstElementChild) {
+        activeScrollObserver.observe(el.firstElementChild);
+      }
+    }
+    sync();
+    requestAnimationFrame(sync);
+    setTimeout(sync, 170);
+  }
+
+  function renderServersView(main, animateView, prevScroll, prevRowTops, prevBarTop) {
+    const visible = pinActiveFirst(appState.profiles, appState.activeProfileId);
+    const activeChanged = appState.activeProfileId !== lastActiveProfileId;
+    lastActiveProfileId = appState.activeProfileId;
+
+    const wrap = document.createElement('div');
+
+    const list = document.createElement('div');
+    list.className = 'dns-list scroll-fade';
+    list.id = 'dns-list';
+
+    // System Default (DHCP) Row
+    const dhcpRow = document.createElement('div');
+    const dhcpActive = appState.activeProfileId === null;
+    dhcpRow.className = `dns-row ${dhcpActive ? 'active' : ''} ${focusedNavId === DHCP_ID ? 'kb-focused' : ''}`;
+    dhcpRow.dataset.navId = DHCP_ID;
+    dhcpRow.innerHTML = `
+      ${dhcpActive ? '<span class="active-bar" aria-hidden="true"></span>' : ''}
+      <button type="button" class="dhcp-btn" aria-pressed="${dhcpActive}">
+        <div class="row-info">
+          <div class="row-name">System Default (DHCP)</div>
+          <div class="row-ips" style="font-family: var(--font-sans);">Automatic ISP DNS</div>
+        </div>
+        ${dhcpActive ? `<span class="check-badge ${activeChanged ? 'check-pre-enter' : ''}">${ICONS.check}</span>` : ''}
+      </button>
+    `;
+    dhcpRow.querySelector('button').onclick = () => {
+      focusedNavId = null;
+      postIpc({ type: 'activateProfile', id: null });
+    };
+    list.appendChild(dhcpRow);
+
+    if (visible.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.innerHTML = `<p>No DNS servers in list</p><button type="button" class="empty-restore-btn" id="btn-empty-restore">${ICONS.rotateCcw}<span>Restore defaults</span></button>`;
+      empty.querySelector('#btn-empty-restore').onclick = () => postIpc({ type: 'resetDefaults' });
+      list.appendChild(empty);
+    } else {
+      visible.forEach((p, idx) => {
+        const isActive = appState.activeProfileId === p.id;
+        const isLast = idx === visible.length - 1;
+        const ips = p.secondary_v4 ? `${p.primary_v4} · ${p.secondary_v4}` : p.primary_v4;
+        const lat = isActive ? latencyInfo(appState.activeLatency, appState.probingActive) : null;
+
+        const row = document.createElement('div');
+        row.className = `dns-row ${isActive ? 'active' : ''} ${isLast ? 'last-row' : ''} ${focusedNavId === p.id ? 'kb-focused' : ''}`;
+        row.dataset.profileId = p.id;
+        row.dataset.navId = p.id;
+
+        row.innerHTML = `
+          ${isActive ? '<span class="active-bar" aria-hidden="true"></span>' : ''}
+          <button type="button" class="row-main-btn" aria-pressed="${isActive}">
+            ${ICONS.grip}
+            <div class="row-info">
+              <div class="row-title-line">
+                <span class="row-name">${escHtml(p.name)}</span>
+                <span class="row-cat">${escHtml(formatCategory(p.category))}</span>
+              </div>
+              <div class="row-ips">${escHtml(ips)}</div>
+            </div>
+          </button>
+          <div class="row-right">
+            <div class="row-actions">
+              <button type="button" class="action-btn edit" aria-label="Edit ${escHtml(p.name)}">${ICONS.pencil}</button>
+              <button type="button" class="action-btn delete" aria-label="Delete ${escHtml(p.name)}">${ICONS.trash2}</button>
+            </div>
+            ${isActive ? `
+              <div class="row-status">
+                <button type="button" class="ping-btn ${lat.cls}" title="Click to retest DNS latency (port 53)" aria-label="Retest ${escHtml(p.name)} latency">${escHtml(lat.text)}</button>
+                <span class="check-badge ${activeChanged ? 'check-pre-enter' : ''}">${ICONS.check}</span>
+              </div>
+            ` : ''}
+          </div>
+        `;
+
+        const mainBtn = row.querySelector('.row-main-btn');
+        mainBtn.addEventListener('pointerdown', (ev) => {
+          if (ev.button !== 0 || draggingState) return;
+          startRowDrag(ev, mainBtn, row, p.id, list);
+        });
+        mainBtn.addEventListener('click', () => {
+          if ((draggingState && draggingState.moved) || performance.now() < suppressDragClickUntil) {
+            return;
+          }
+          focusedNavId = null;
+          postIpc({ type: 'activateProfile', id: p.id });
+        });
+
+        row.querySelector('.action-btn.edit').onclick = (ev) => {
+          ev.stopPropagation();
+          openEditForm(p);
+        };
+        row.querySelector('.action-btn.delete').onclick = (ev) => {
+          ev.stopPropagation();
+          postIpc({ type: 'deleteProfile', id: p.id });
+        };
+        const pingBtn = row.querySelector('.ping-btn');
+        if (pingBtn) {
+          pingBtn.onclick = (ev) => {
+            ev.stopPropagation();
+            postIpc({ type: 'probeActive' });
+          };
+        }
+
+        list.appendChild(row);
+      });
+    }
+
+    wrap.appendChild(list);
+    mountViewPanel(main, wrap, animateView);
+    list.scrollTop = prevScroll;
+    attachScrollFade(list);
+
+    if (activeChanged) {
+      const enteringCheck = list.querySelector('.check-badge.check-pre-enter');
+      if (enteringCheck) {
+        void enteringCheck.offsetWidth;
+        requestAnimationFrame(() => enteringCheck.classList.remove('check-pre-enter'));
+      }
+    }
+
+    if (activeChanged && appState.activeProfileId) {
+      list.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Play FLIP spring animations for moved rows and active indicator bar
+    if (!animateView && prevRowTops && prevRowTops.size > 0) {
+      const springTiming = { duration: 280, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' };
+      list.querySelectorAll('.dns-row[data-nav-id]').forEach((el) => {
+        const prevTop = prevRowTops.get(el.dataset.navId);
+        if (prevTop === undefined) return;
+        const dy = prevTop - el.getBoundingClientRect().top;
+        if (Math.abs(dy) >= 1 && typeof el.animate === 'function') {
+          el.animate(
+            [{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }],
+            springTiming
+          );
+        }
+      });
+
+      const nextBar = list.querySelector('.active-bar');
+      if (nextBar && prevBarTop !== null && activeChanged && typeof nextBar.animate === 'function') {
+        const barDy = prevBarTop - nextBar.getBoundingClientRect().top;
+        if (Math.abs(barDy) >= 1) {
+          nextBar.animate(
+            [{ transform: `translateY(${barDy}px)` }, { transform: 'translateY(0)' }],
+            springTiming
+          );
+        }
+      }
+    }
+  }
+
+  function startRowDrag(startEv, captureEl, row, profileId, listEl) {
+    const startY = startEv.clientY;
+    const pointerId = startEv.pointerId;
+    const startScroll = listEl.scrollTop;
+    let moved = false;
+    let rafId = null;
+    let latestClientY = startY;
+    let rows = [];
+    let dragIdx = -1;
+    let slotTops = [];
+    let slotMids = [];
+    let heights = [];
+    let targetIdx = -1;
+    let clampedDy = 0;
+
+    draggingState = { moved: false, profileId };
+    try {
+      captureEl.setPointerCapture(pointerId);
+    } catch {}
+
+    const initGeometry = () => {
+      rows = Array.from(listEl.querySelectorAll('.dns-row[data-profile-id]'));
+      dragIdx = rows.indexOf(row);
+      targetIdx = dragIdx;
+      const rects = rows.map((el) => el.getBoundingClientRect());
+      slotTops = rects.map((r) => r.top + listEl.scrollTop);
+      heights = rects.map((r) => r.height);
+      slotMids = rects.map((r, i) => slotTops[i] + r.height / 2);
+
+      listEl.classList.add('is-dragging');
+      row.classList.add('dragging');
+      rows.forEach((other) => {
+        if (other !== row) other.classList.add('drag-neighbor');
+      });
+    };
+
+    const applyFrame = () => {
+      rafId = null;
+      if (!moved || dragIdx < 0) return;
+
+      const rawDy = latestClientY - startY + (listEl.scrollTop - startScroll);
+      const dragHeight = heights[dragIdx];
+      const minDy = slotTops[0] - slotTops[dragIdx];
+      const lastIdx = rows.length - 1;
+      const maxDy = slotTops[lastIdx] + heights[lastIdx] - (slotTops[dragIdx] + dragHeight);
+      clampedDy = Math.max(minDy, Math.min(maxDy, rawDy));
+
+      row.style.transform = `translate3d(0, ${clampedDy}px, 0)`;
+
+      const draggedTop = slotTops[dragIdx] + clampedDy;
+      const draggedBottom = draggedTop + dragHeight;
+      let nextTarget = dragIdx;
+
+      if (clampedDy < 0) {
+        for (let i = 0; i < dragIdx; i++) {
+          if (draggedTop < slotMids[i]) {
+            nextTarget = i;
+            break;
+          }
+        }
+      } else if (clampedDy > 0) {
+        for (let i = lastIdx; i > dragIdx; i--) {
+          if (draggedBottom > slotMids[i]) {
+            nextTarget = i;
+            break;
+          }
+        }
+      }
+
+      if (nextTarget !== targetIdx) {
+        targetIdx = nextTarget;
+        rows.forEach((other, i) => {
+          if (i === dragIdx) return;
+          let shift = 0;
+          if (targetIdx > dragIdx && i > dragIdx && i <= targetIdx) {
+            shift = -dragHeight;
+          } else if (targetIdx < dragIdx && i < dragIdx && i >= targetIdx) {
+            shift = dragHeight;
+          }
+          other.style.transform = shift === 0 ? 'translate3d(0, 0, 0)' : `translate3d(0, ${shift}px, 0)`;
+        });
+      }
+    };
+
+    const onMove = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      latestClientY = ev.clientY;
+      const dy = latestClientY - startY;
+      if (!moved) {
+        if (Math.abs(dy) < 5) return;
+        moved = true;
+        draggingState.moved = true;
+        initGeometry();
+      }
+      if (rafId === null) {
+        rafId = requestAnimationFrame(applyFrame);
+      }
+    };
+
+    let finished = false;
+    const finishDrag = (commit) => {
+      if (finished) return;
+      finished = true;
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      captureEl.removeEventListener('pointermove', onMove);
+      captureEl.removeEventListener('pointerup', onUp);
+      captureEl.removeEventListener('pointercancel', onCancel);
+      captureEl.removeEventListener('lostpointercapture', onCancel);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      try {
+        if (captureEl.hasPointerCapture(pointerId)) {
+          captureEl.releasePointerCapture(pointerId);
+        }
+      } catch {}
+
+      if (!moved || dragIdx < 0) {
+        draggingState = null;
+        if (pendingSyncPayload) {
+          const next = pendingSyncPayload;
+          pendingSyncPayload = null;
+          setTimeout(() => {
+            if (!draggingState) window.__shiftdnsSync(next);
+          }, 0);
+        }
+        return;
+      }
+
+      suppressDragClickUntil = performance.now() + 80;
+      const finalTarget = commit ? targetIdx : dragIdx;
+      const finalOffset = slotTops[finalTarget] - slotTops[dragIdx];
+      row.style.transition = 'transform 160ms cubic-bezier(0.2, 0, 0, 1)';
+      row.style.transform = `translate3d(0, ${finalOffset}px, 0)`;
+
+      setTimeout(() => {
+        const reordered = rows.slice();
+        if (finalTarget !== dragIdx) {
+          const [item] = reordered.splice(dragIdx, 1);
+          reordered.splice(finalTarget, 0, item);
+        }
+
+        listEl.classList.remove('is-dragging');
+        rows.forEach((el) => {
+          el.classList.remove('dragging', 'drag-neighbor');
+          el.style.transform = '';
+          el.style.transition = '';
+        });
+
+        reordered.forEach((el, idx) => {
+          el.classList.toggle('last-row', idx === reordered.length - 1);
+          listEl.appendChild(el);
+        });
+
+        const orderedIds = reordered.map((el) => el.dataset.profileId);
+        if (finalTarget !== dragIdx) {
+          const byId = new Map(appState.profiles.map((p) => [p.id, p]));
+          const nextProfiles = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+          if (nextProfiles.length === appState.profiles.length) {
+            appState.profiles = nextProfiles;
+          }
+          postIpc({ type: 'reorderProfiles', orderedIds });
+        }
+
+        draggingState = null;
+        if (pendingSyncPayload) {
+          const next = pendingSyncPayload;
+          pendingSyncPayload = null;
+          window.__shiftdnsSync(next);
+        }
+      }, 170);
+    };
+
+    const onUp = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      finishDrag(true);
+    };
+
+    const onCancel = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      finishDrag(false);
+    };
+
+    captureEl.addEventListener('pointermove', onMove);
+    captureEl.addEventListener('pointerup', onUp);
+    captureEl.addEventListener('pointercancel', onCancel);
+    captureEl.addEventListener('lostpointercapture', onCancel);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+  }
+
+  function renderSettingsView(main, animateView) {
+    const prevSettingsEl = document.querySelector('.settings-scroll');
+    const prevScroll = prevSettingsEl ? prevSettingsEl.scrollTop : 0;
+    const wrap = document.createElement('div');
+
+    const items = [
+      { key: 'darkMode', checked: appState.darkMode, label: 'Use dark theme' },
+      { key: 'enableIpv6', checked: appState.enableIpv6, label: 'Apply IPv6 DNS alongside IPv4' },
+      { key: 'enableDoh', checked: appState.enableDoh, label: 'Enable Windows 11 DNS-over-HTTPS (DoH)' },
+      { key: 'startMinimized', checked: appState.startMinimized, label: 'Start minimized in system tray' },
+      { key: 'launchAtStartup', checked: appState.launchAtStartup, label: 'Launch at Windows sign-in' },
+    ];
+
+    wrap.innerHTML = `
+      <div class="settings-scroll scroll-fade">
+        <button type="button" class="settings-add-row" id="settings-add-dns">
+          <span class="settings-add-left">${ICONS.plus}<span>Add custom DNS</span></span>
+          <span class="settings-chevron">${ICONS.chevronRight}</span>
+        </button>
+        ${items.map((item) => `
+          <label class="settings-check-row">
+            <input type="checkbox" class="sr-only" data-setting="${item.key}" ${item.checked ? 'checked' : ''} />
+            <span class="custom-checkbox ${item.checked ? 'checked' : ''}" aria-hidden="true">${item.checked ? ICONS.checkSmall : ''}</span>
+            <span>${escHtml(item.label)}</span>
+          </label>
+        `).join('')}
+        <div class="settings-footer-action">
+          <button type="button" class="restore-btn" id="settings-restore-defaults">
+            ${ICONS.rotateCcw}
+            <span>Restore default presets</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    wrap.querySelector('#settings-add-dns').onclick = () => openAddForm('settings');
+    wrap.querySelector('#settings-restore-defaults').onclick = () => {
+      postIpc({ type: 'resetDefaults' });
+      transitionView('servers');
+    };
+    wrap.querySelectorAll('input[data-setting]').forEach((input) => {
+      input.onchange = () => {
+        postIpc({ type: 'toggleSetting', key: input.dataset.setting, value: input.checked });
+      };
+    });
+
+    mountViewPanel(main, wrap, animateView);
+    const scrollEl = wrap.querySelector('.settings-scroll');
+    if (scrollEl && prevScroll > 0) {
+      scrollEl.style.scrollBehavior = 'auto';
+      scrollEl.scrollTop = prevScroll;
+      scrollEl.style.scrollBehavior = '';
+    }
+    attachScrollFade(scrollEl);
+  }
+
+  function openAddForm(returnTo = 'servers') {
+    transitionView('add-dns', () => {
+      editingProfile = null;
+      showAdvanced = false;
+      formError = null;
+      formReturnView = returnTo;
+    });
+  }
+
+  function openEditForm(profile) {
+    transitionView('add-dns', () => {
+      editingProfile = { ...profile };
+      showAdvanced = Boolean(profile.primary_v6 || profile.secondary_v6 || profile.doh_template);
+      formError = null;
+      formReturnView = 'servers';
+    });
+  }
+
+  function isValidIpv4(ip) {
+    const parts = ip.trim().split('.');
+    if (parts.length !== 4) return false;
+    return parts.every((part) => {
+      if (!/^\d{1,3}$/.test(part)) return false;
+      if (part.length > 1 && part.startsWith('0')) return false;
+      const n = Number(part);
+      return n >= 0 && n <= 255;
+    });
+  }
+
+  function isValidIpv6(ip) {
+    const t = ip.trim();
+    if (!t || !t.includes(':') || t.includes(':::')) return false;
+    const dc = t.split('::');
+    if (dc.length > 2) return false;
+    const ok = (gs) => gs.every((g) => /^[0-9a-fA-F]{1,4}$/.test(g));
+    if (dc.length === 2) {
+      const l = dc[0] ? dc[0].split(':') : [];
+      const r = dc[1] ? dc[1].split(':') : [];
+      return l.length + r.length < 8 && ok(l) && ok(r);
+    }
+    const gs = t.split(':');
+    return gs.length === 8 && ok(gs);
+  }
+
+  function isValidDohUrl(url) {
+    const t = url.trim();
+    if (!t) return true;
+    try { return new URL(t).protocol === 'https:'; } catch { return false; }
+  }
+
+  function renderFormView(main, animateView) {
+    const wrap = document.createElement('div');
+
+    const p = editingProfile || {
+      name: '', category: 'Custom', primary_v4: '', secondary_v4: '',
+      primary_v6: '', secondary_v6: '', doh_template: ''
+    };
+
+    wrap.innerHTML = `
+      <div class="form-scroll scroll-fade">
+        <form class="dns-form" id="dns-form">
+          <div class="form-row-2fr-1fr">
+            <div>
+              <label for="f-name" class="field-label mb">Name</label>
+              <input id="f-name" class="field-input" type="text" value="${escHtml(p.name)}" placeholder="NextDNS" />
+            </div>
+            <div>
+              <label for="f-cat" class="field-label mb">Category</label>
+              <div class="select-wrap">
+                <select id="f-cat" class="field-select">
+                  ${CATEGORIES.map((c) => `<option value="${c}" ${p.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+                </select>
+                ${ICONS.chevronDown}
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row-2col">
+            <div>
+              <label for="f-p4" class="field-label mb">Primary IPv4</label>
+              <input id="f-p4" class="field-input mono" type="text" value="${escHtml(p.primary_v4)}" placeholder="45.90.28.0" />
+            </div>
+            <div>
+              <div class="field-label-row">
+                <label for="f-s4" class="field-label">Secondary IPv4</label>
+                <span class="field-opt">Optional</span>
+              </div>
+              <input id="f-s4" class="field-input mono" type="text" value="${escHtml(p.secondary_v4)}" placeholder="45.90.30.0" />
+            </div>
+          </div>
+
+          <div>
+            <button type="button" class="adv-toggle-btn" id="btn-adv" aria-expanded="${showAdvanced}">
+              ${showAdvanced ? ICONS.minus : ICONS.plus}
+              <span>IPv6 / DoH</span>
+            </button>
+            <div class="adv-fields" id="adv-fields" style="display: ${showAdvanced ? 'flex' : 'none'};">
+              <div class="form-row-2col">
+                <div>
+                  <div class="field-label-row">
+                    <label for="f-p6" class="field-label">Primary IPv6</label>
+                    <span class="field-opt">${appState.enableIpv6 ? 'Optional' : 'Off in Settings'}</span>
+                  </div>
+                  <input id="f-p6" class="field-input mono" type="text" value="${escHtml(p.primary_v6)}" placeholder="2a07:a8c0::" />
+                </div>
+                <div>
+                  <div class="field-label-row">
+                    <label for="f-s6" class="field-label">Secondary IPv6</label>
+                    <span class="field-opt">Optional</span>
+                  </div>
+                  <input id="f-s6" class="field-input mono" type="text" value="${escHtml(p.secondary_v6)}" placeholder="2a07:a8c1::" />
+                </div>
+              </div>
+              <div>
+                <div class="field-label-row">
+                  <label for="f-doh" class="field-label">DoH template URL</label>
+                  <span class="field-opt">${appState.enableDoh ? 'Optional' : 'Off in Settings'}</span>
+                </div>
+                <input id="f-doh" class="field-input mono" type="text" value="${escHtml(p.doh_template)}" placeholder="https://dns.nextdns.io/abc123" />
+              </div>
+            </div>
+          </div>
+
+          <p class="form-error" id="form-error" style="display: ${formError ? 'block' : 'none'};">${formError ? escHtml(formError) : ''}</p>
+          <div>
+            <button type="submit" class="save-btn">Save</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    const formEl = wrap.querySelector('#dns-form');
+    const clearErr = () => {
+      formError = null;
+      const errEl = wrap.querySelector('#form-error');
+      errEl.style.display = 'none';
+      errEl.textContent = '';
+    };
+    formEl.querySelectorAll('input').forEach((inp) => inp.addEventListener('input', clearErr));
+
+    wrap.querySelector('#btn-adv').onclick = () => {
+      showAdvanced = !showAdvanced;
+      const box = wrap.querySelector('#adv-fields');
+      const btn = wrap.querySelector('#btn-adv');
+      box.style.display = showAdvanced ? 'flex' : 'none';
+      btn.setAttribute('aria-expanded', String(showAdvanced));
+      btn.innerHTML = `${showAdvanced ? ICONS.minus : ICONS.plus}<span>IPv6 / DoH</span>`;
+      updateScrollFade(wrap.querySelector('.form-scroll'));
+    };
+
+    formEl.onsubmit = (ev) => {
+      ev.preventDefault();
+      const payload = {
+        id: editingProfile ? editingProfile.id : null,
+        name: wrap.querySelector('#f-name').value.trim(),
+        category: wrap.querySelector('#f-cat').value,
+        primary_v4: wrap.querySelector('#f-p4').value.trim(),
+        secondary_v4: wrap.querySelector('#f-s4').value.trim(),
+        primary_v6: wrap.querySelector('#f-p6').value.trim(),
+        secondary_v6: wrap.querySelector('#f-s6').value.trim(),
+        doh_template: wrap.querySelector('#f-doh').value.trim(),
+      };
+
+      let err = null;
+      if (!payload.name) err = 'Name is required.';
+      else if (!isValidIpv4(payload.primary_v4)) err = 'Enter a valid primary IPv4 address (e.g. 45.90.28.0).';
+      else if (payload.secondary_v4 && !isValidIpv4(payload.secondary_v4)) err = 'Secondary IPv4 address is invalid.';
+      else if (payload.primary_v6 && !isValidIpv6(payload.primary_v6)) err = 'Primary IPv6 address is invalid.';
+      else if (payload.secondary_v6 && !isValidIpv6(payload.secondary_v6)) err = 'Secondary IPv6 address is invalid.';
+      else if (!isValidDohUrl(payload.doh_template)) err = 'DoH template must be a valid https:// URL.';
+
+      if (err) {
+        formError = err;
+        const errEl = wrap.querySelector('#form-error');
+        errEl.textContent = err;
+        errEl.style.display = 'block';
+        updateScrollFade(wrap.querySelector('.form-scroll'));
+        return;
+      }
+
+      postIpc({ type: 'saveProfile', profile: payload });
+      transitionView('servers', () => {
+        editingProfile = null;
+        formError = null;
+      });
+    };
+
+    mountViewPanel(main, wrap, animateView);
+    attachScrollFade(wrap.querySelector('.form-scroll'));
+    setTimeout(() => {
+      const nameInput = document.getElementById('f-name');
+      if (nameInput) nameInput.focus();
+    }, 30);
+  }
+
+  function renderAll(animateView = false) {
+    applyTheme();
+    renderHeader();
+    renderBody(animateView);
+    renderFooter();
+  }
+
+  // Footer adapter switcher (Auto <-> available adapters)
+  document.getElementById('btn-adapter').addEventListener('click', () => {
+    postIpc({ type: 'cycleAdapter' });
+  });
+
+  // Titlebar drag
+  document.getElementById('drag-spacer').addEventListener('mousedown', (ev) => {
+    if (ev.button === 0) {
+      postIpc({ type: 'dragWindow' });
+    }
+  });
+
+  // Disable WebView2 browser context menu outside text inputs
+  window.addEventListener('contextmenu', (e) => {
+    const tag = e.target && e.target.tagName;
+    if (tag !== 'INPUT' && tag !== 'TEXTAREA') {
+      e.preventDefault();
+    }
+  });
+
+  // Keyboard shortcuts (Esc, Ctrl+N, ArrowUp/ArrowDown, Enter)
+  window.addEventListener('keydown', (e) => {
+    const tag = e.target && e.target.tagName;
+    const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (viewMode === 'add-dns') {
+        const target = formReturnView;
+        transitionView(target, () => {
+          editingProfile = null;
+          formError = null;
+        });
+      } else if (viewMode === 'settings') {
+        transitionView('servers');
+      } else {
+        focusedNavId = null;
+        animateHideAndPost();
+      }
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'n') {
+      e.preventDefault();
+      openAddForm('servers');
+      return;
+    }
+
+    if (viewMode !== 'servers' || isInput) return;
+
+    const visible = pinActiveFirst(appState.profiles, appState.activeProfileId);
+    const ids = [DHCP_ID, ...visible.map((p) => p.id)];
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const anchor = focusedNavId || appState.activeProfileId || DHCP_ID;
+      let idx = ids.indexOf(anchor);
+      if (idx === -1) idx = e.key === 'ArrowDown' ? 0 : ids.length - 1;
+      else idx = (idx + (e.key === 'ArrowDown' ? 1 : -1) + ids.length) % ids.length;
+      focusedNavId = ids[idx];
+      renderBody(false);
+      const row = document.querySelector(`.dns-row[data-nav-id="${CSS.escape(focusedNavId)}"]`);
+      if (row) row.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+
+    if (e.key === 'Enter' && focusedNavId !== null) {
+      e.preventDefault();
+      const targetId = focusedNavId === DHCP_ID ? null : focusedNavId;
+      focusedNavId = null;
+      postIpc({ type: 'activateProfile', id: targetId });
+    }
+  });
+
+  window.__shiftdnsSync = function (next) {
+    if (draggingState) {
+      pendingSyncPayload = next;
+      return;
+    }
+    if (!('activeLatency' in next)) {
+      appState.activeLatency = undefined;
+    }
+    Object.assign(appState, next);
+    if (viewMode === 'servers') {
+      renderAll(false);
+    } else {
+      applyTheme();
+      renderFooter();
+      if (viewMode === 'settings') {
+        const settingMap = {
+          darkMode: appState.darkMode,
+          enableIpv6: appState.enableIpv6,
+          enableDoh: appState.enableDoh,
+          startMinimized: appState.startMinimized,
+          launchAtStartup: appState.launchAtStartup,
+        };
+        document.querySelectorAll('input[data-setting]').forEach((input) => {
+          const key = input.dataset.setting;
+          if (!(key in settingMap)) return;
+          const checked = Boolean(settingMap[key]);
+          input.checked = checked;
+          const box = input.parentElement && input.parentElement.querySelector('.custom-checkbox');
+          if (box) {
+            box.classList.toggle('checked', checked);
+            box.innerHTML = checked ? ICONS.checkSmall : '';
+          }
+        });
+      }
+    }
+  };
+
+  renderAll(false);
+  postIpc({ type: 'ready' });
+})();
+</script>
+</body>
+</html>

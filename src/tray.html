@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ShiftDNS Tray</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --font-sans: "IBM Plex Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: "IBM Plex Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+    --ease-unslop: cubic-bezier(0.22, 1, 0.36, 1);
+
+    --bg: #0E1012;
+    --chrome-bg: #0B0D10;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-outer: #22252A;
+    --text: #EDF0F5;
+    --text-muted: #7C8594;
+    --text-soft: #94A3B8;
+    --pill-hover: rgba(255, 255, 255, 0.06);
+    --accent: #10B981;
+    --exit-hover: #F87171;
+  }
+
+  html.light {
+    --bg: #FFFFFF;
+    --chrome-bg: #F6F7F9;
+    --border: rgba(23, 23, 23, 0.06);
+    --border-outer: #E5E5E5;
+    --text: #171717;
+    --text-muted: #737373;
+    --text-soft: #525252;
+    --pill-hover: rgba(0, 0, 0, 0.05);
+    --accent: #059669;
+    --exit-hover: #DC2626;
+  }
+
+  html, body {
+    width: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  /* Matches WindowsAppPreview tray motion.div:
+     initial={{ opacity: 0, scale: 0.96, y: 6 }} -> animate={{ opacity: 1, scale: 1, y: 0 }} */
+  .tray-menu {
+    width: 100%;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: var(--bg);
+    border: 1px solid var(--border-outer);
+    border-radius: 8px;
+    color: var(--text);
+    transform-origin: bottom right;
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+    transition: opacity 150ms var(--ease-unslop), transform 180ms var(--ease-unslop);
+  }
+
+  .tray-menu.open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  .menu-item {
+    width: 100%;
+    height: 30px;
+    padding: 7px 10px;
+    border: 0;
+    outline: none;
+    box-shadow: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 16px;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+
+  .menu-item:hover,
+  .menu-item:focus,
+  .menu-item:focus-visible,
+  .menu-item:active {
+    border: 0;
+    outline: none;
+    box-shadow: none;
+  }
+
+  html:not(.suspend-hover) .menu-item:hover {
+    background: var(--pill-hover);
+  }
+
+  html:not(.suspend-hover) .menu-item[data-action="quit"]:hover {
+    background: var(--pill-hover);
+    color: var(--exit-hover);
+  }
+
+  html.suspend-hover .menu-item,
+  html.suspend-hover .menu-item:hover,
+  html.suspend-hover .menu-item:focus-visible {
+    background: transparent !important;
+    color: var(--text) !important;
+    transition: none !important;
+  }
+
+  .menu-item.strong { font-weight: 500; }
+
+  .item-slot {
+    width: 20px;
+    height: 16px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .check-svg {
+    width: 14px;
+    height: 14px;
+    color: var(--accent);
+  }
+
+  .power-svg {
+    width: 15px;
+    height: 15px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: color 120ms ease;
+  }
+
+  html:not(.suspend-hover) .menu-item[data-action="quit"]:hover .power-svg {
+    color: var(--exit-hover);
+  }
+
+  html.suspend-hover .power-svg {
+    color: var(--text-muted) !important;
+    transition: none !important;
+  }
+
+  .item-label-wrap {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    overflow: hidden;
+  }
+
+  .item-name {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .item-ip {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 116px;
+    flex-shrink: 0;
+  }
+
+  .divider {
+    margin: 4px 6px;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+<div class="tray-menu open" id="tray-menu" role="menu" aria-label="ShiftDNS tray quick-toggle menu"></div>
+
+<script>
+(() => {
+  const CHECK_ICON = `<svg class="check-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`;
+  const POWER_ICON = `<svg class="power-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/></svg>`;
+
+  const state = {
+    darkMode: true,
+    mainVisible: true,
+    activeProfileId: null,
+    topProfiles: [],
+  };
+
+  function postIpc(msg) {
+    if (window.ipc && typeof window.ipc.postMessage === 'function') {
+      window.ipc.postMessage(JSON.stringify(msg));
+    }
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  let lastHeight = 0;
+  function syncHeight() {
+    requestAnimationFrame(() => {
+      const el = document.getElementById('tray-menu');
+      if (!el) return;
+      const h = Math.max(el.offsetHeight, el.scrollHeight + 2);
+      if (h > 40 && Math.abs(h - lastHeight) >= 1) {
+        lastHeight = h;
+        postIpc({ type: 'resizeTray', height: h });
+      }
+    });
+  }
+
+  function render() {
+    document.documentElement.classList.toggle('light', !state.darkMode);
+    const root = document.getElementById('tray-menu');
+
+    let html = '';
+    if (!state.mainVisible) {
+      html += `
+        <button type="button" class="menu-item strong" role="menuitem" data-action="showMain">
+          <span class="item-slot" aria-hidden="true"></span>
+          <span class="item-label-wrap">
+            <span class="item-name">Open ShiftDNS</span>
+          </span>
+        </button>
+        <div class="divider"></div>
+      `;
+    }
+
+    const dhcpActive = state.activeProfileId === null;
+    html += `
+      <button type="button" class="menu-item" role="menuitem" data-action="activate" data-id="">
+        <span class="item-slot">${dhcpActive ? CHECK_ICON : ''}</span>
+        <span class="item-label-wrap">
+          <span class="item-name">System Default (DHCP)</span>
+        </span>
+      </button>
+    `;
+
+    for (const p of state.topProfiles) {
+      const active = state.activeProfileId === p.id;
+      const ip = p.primary_v4 || p.primary_v6 || '';
+      const title = ip ? `${p.name} (${ip})` : p.name;
+      html += `
+        <button type="button" class="menu-item" role="menuitem" title="${escHtml(title)}" data-action="activate" data-id="${escHtml(p.id)}">
+          <span class="item-slot">${active ? CHECK_ICON : ''}</span>
+          <span class="item-label-wrap">
+            <span class="item-name">${escHtml(p.name)}</span>
+            ${ip ? `<span class="item-ip">(${escHtml(ip)})</span>` : ''}
+          </span>
+        </button>
+      `;
+    }
+
+    html += `
+      <div class="divider"></div>
+      <button type="button" class="menu-item" role="menuitem" data-action="quit">
+        <span class="item-slot">${POWER_ICON}</span>
+        <span class="item-label-wrap">
+          <span class="item-name">Exit</span>
+        </span>
+      </button>
+    `;
+
+    root.innerHTML = html;
+
+    root.querySelectorAll('button[data-action]').forEach((btn) => {
+      btn.onclick = () => {
+        const action = btn.dataset.action;
+        clearTrayHoverState();
+        if (action === 'showMain') {
+          postIpc({ type: 'trayShowMain' });
+        } else if (action === 'activate') {
+          const id = btn.dataset.id || null;
+          postIpc({ type: 'trayActivate', id });
+        } else if (action === 'quit') {
+          postIpc({ type: 'trayQuit' });
+        }
+      };
+    });
+
+    syncHeight();
+  }
+
+  let clearHoverListeners = null;
+  function armHoverOnInput() {
+    if (clearHoverListeners) clearHoverListeners();
+    const resume = () => {
+      if (clearHoverListeners) clearHoverListeners();
+      document.documentElement.classList.remove('suspend-hover');
+    };
+    window.addEventListener('pointermove', resume, { passive: true });
+    window.addEventListener('pointerdown', resume, { passive: true });
+    window.addEventListener('keydown', resume, { passive: true });
+    clearHoverListeners = () => {
+      window.removeEventListener('pointermove', resume);
+      window.removeEventListener('pointerdown', resume);
+      window.removeEventListener('keydown', resume);
+      clearHoverListeners = null;
+    };
+  }
+
+  function clearTrayHoverState() {
+    if (document.activeElement && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    document.documentElement.classList.add('suspend-hover');
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      clearTrayHoverState();
+      postIpc({ type: 'hideTray' });
+    }
+  });
+
+  window.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+  });
+
+  window.addEventListener('blur', () => {
+    clearTrayHoverState();
+  });
+
+  window.__shiftdnsTraySync = function (next) {
+    Object.assign(state, next);
+    render();
+  };
+
+  window.__shiftdnsTrayClose = function () {
+    clearTrayHoverState();
+    const el = document.getElementById('tray-menu');
+    if (el) el.classList.remove('open');
+  };
+
+  window.__shiftdnsTrayOpen = function () {
+    clearTrayHoverState();
+    armHoverOnInput();
+    syncHeight();
+    const el = document.getElementById('tray-menu');
+    if (!el) return;
+    el.classList.remove('open');
+    void el.offsetWidth;
+    requestAnimationFrame(() => el.classList.add('open'));
+  };
+
+  render();
+  postIpc({ type: 'trayReady' });
+})();
+</script>
+</body>
+</html>
