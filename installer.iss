@@ -22,7 +22,7 @@ Source: "target\release\ShiftDNS.exe"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{autoprograms}\ShiftDNS"; Filename: "{app}\ShiftDNS.exe"
 
 [Run]
-Filename: "{app}\ShiftDNS.exe"; Description: "{cm:LaunchProgram,ShiftDNS}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\ShiftDNS.exe"; Description: "{cm:LaunchProgram,ShiftDNS}"; Flags: nowait postinstall skipifsilent shellexec
 
 [UninstallRun]
 Filename: "taskkill.exe"; Parameters: "/F /IM ShiftDNS.exe"; Flags: runhidden; RunOnceId: "KillShiftDNS"
@@ -41,4 +41,5 @@ begin
   Sleep(400);
   Result := '';
 end;
+
 
