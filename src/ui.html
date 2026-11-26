@@ -146,7 +146,6 @@
   html.suspend-hover .dns-row:not(.active):hover { background: transparent; }
   html.suspend-hover .dns-row:hover .grip-icon { opacity: 0; }
   html.suspend-hover .dns-row:hover .row-actions { opacity: 0; pointer-events: none; }
-  html.suspend-hover .dns-row:hover .row-status { opacity: 1; pointer-events: auto; }
   html.suspend-hover .settings-add-row:hover,
   html.suspend-hover .settings-check-row:hover,
   html.suspend-hover .settings-update-row:hover { background: transparent; }
@@ -438,9 +437,6 @@
     opacity: 0;
     pointer-events: none;
   }
-  .dns-list.is-dragging .dns-row:not(.dragging):hover .row-status {
-    opacity: 1;
-  }
   .dns-list.is-dragging .dns-row:not(.dragging):hover .grip-icon {
     opacity: 0;
   }
@@ -552,16 +548,14 @@
   .row-right {
     position: relative;
     padding-right: 16px;
-    display: inline-grid;
+    display: flex;
     align-items: center;
-    justify-items: end;
+    justify-content: flex-end;
+    gap: 4px;
     flex-shrink: 0;
   }
 
   .row-actions, .row-status {
-    grid-column: 1;
-    grid-row: 1;
-    justify-self: end;
     display: flex;
     align-items: center;
   }
@@ -577,28 +571,18 @@
     gap: 6px;
     opacity: 1;
     pointer-events: auto;
-    transition: opacity 150ms ease;
   }
 
   @media (hover: hover) {
-    .dns-row:hover .row-actions {
+    .dns-row:not(.just-activated):hover .row-actions {
       opacity: 1;
       pointer-events: auto;
-    }
-    .dns-row:hover .row-status {
-      opacity: 0;
-      pointer-events: none;
     }
   }
 
   .dns-row:has(.row-actions:focus-within) .row-actions {
     opacity: 1;
     pointer-events: auto;
-  }
-
-  .dns-row:has(.row-actions:focus-within) .row-status {
-    opacity: 0;
-    pointer-events: none;
   }
 
   .action-btn {
@@ -1652,8 +1636,11 @@
     el.classList.toggle('fade-bottom', showBottom);
   }
 
+  let justActivatedId = null;
+
   function applyOptimisticActivation(targetId) {
     const selected = targetId ? appState.profiles.find((p) => p.id === targetId) || null : null;
+    justActivatedId = targetId;
     appState.activeProfileId = targetId;
     appState.activeLatency = undefined;
     appState.activeResolveStatus = null;
@@ -1765,9 +1752,15 @@
           : null;
 
         const row = document.createElement('div');
-        row.className = `dns-row ${isActive ? 'active' : ''} ${isLast ? 'last-row' : ''} ${focusedNavId === p.id ? 'kb-focused' : ''}`;
+        row.className = `dns-row ${isActive ? 'active' : ''} ${isLast ? 'last-row' : ''} ${focusedNavId === p.id ? 'kb-focused' : ''} ${justActivatedId === p.id ? 'just-activated' : ''}`;
         row.dataset.profileId = p.id;
         row.dataset.navId = p.id;
+        row.addEventListener('mouseleave', () => {
+          if (justActivatedId === p.id) {
+            justActivatedId = null;
+            row.classList.remove('just-activated');
+          }
+        });
 
         row.innerHTML = `
           ${isActive ? '<span class="active-bar" aria-hidden="true"></span>' : ''}
