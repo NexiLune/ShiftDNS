@@ -1537,13 +1537,13 @@
         transitionView('settings');
       });
     }
-    addControl('btn-min', 'Minimize ShiftDNS window to system tray', 'Minimize to tray', ICONS.minus, true, () => {
+    addControl('btn-min', 'Minimize ShiftDNS to system tray', 'Minimize to tray (Esc)', ICONS.minus, true, () => {
       playSound('click');
       animateHideAndPost();
     });
-    addControl('btn-close', 'Close ShiftDNS window to system tray', 'Close to tray (Esc)', ICONS.x, true, () => {
-      playSound('click');
-      animateHideAndPost();
+    addControl('btn-close', 'Quit ShiftDNS', 'Quit ShiftDNS', ICONS.x, true, () => {
+      playSound('delete');
+      postIpc({ type: 'quitApp' });
     });
   }
 

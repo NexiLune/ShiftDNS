@@ -1,6 +1,6 @@
 [package]
 name = "shiftdns"
-version = "1.1.2"
+version = "1.1.3"
 edition = "2021"
 description = "Ultra-lightweight minimal Windows DNS switcher with system tray quick-toggle"
 authors = ["ShiftDNS"]
