@@ -8,43 +8,57 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --font-sans: "IBM Plex Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
-    --font-mono: "IBM Plex Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+    --font-sans: "Plus Jakarta Sans", "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
     --ease-unslop: cubic-bezier(0.22, 1, 0.36, 1);
 
-    --bg: #0E1012;
-    --chrome-bg: #0B0D10;
-    --text: #EDF0F5;
-    --text-muted: #7C8594;
-    --text-sub: #64748B;
-    --text-soft: #94A3B8;
-    --text-footer: #6B7485;
-    --border: rgba(255, 255, 255, 0.06);
-    --border-outer: #22252A;
-    --active-bg: #15181E;
-    --hover-bg: #12151B;
-    --icon-hover-bg: #15181E;
-    --action-hover-bg: #1E232D;
-    --accent: #10B981;
-    --accent-hover: #0EA572;
-    --accent-btn-text: #0B0E11;
-    --fast: #34D399;
-    --medium: #8B95A5;
-    --slow: #FBBF24;
-    --timeout: #F87171;
-    --input-bg: #15181E;
-    --input-focus-bg: #181C24;
-    --input-border: rgba(255, 255, 255, 0.08);
-    --input-focus-border: rgba(16, 185, 129, 0.6);
-    --input-placeholder: #64748B;
-    --chevron-color: #64748B;
-    --restore-hover-bg: #15181E;
-    --empty-btn-bg: #15181E;
-    --empty-btn-hover: #1C2028;
-    --checkbox-border: rgba(255, 255, 255, 0.25);
-    --shield-fill: rgba(255, 255, 255, 0.1);
-    --kb-ring: rgba(255, 255, 255, 0.25);
-    --scroll-thumb: rgba(255, 255, 255, 0.08);
+    --bg: #141415;
+    --chrome-bg: #111112;
+    --text: #EDEDED;
+    --text-muted: #7A7A80;
+    --text-sub: #7A7A80;
+    --text-soft: #A1A1A6;
+    --text-footer: #7A7A80;
+    --border: rgba(255, 255, 255, 0.07);
+    --border-outer: #262628;
+    --active-bg: #1C1C1E;
+    --hover-bg: #19191B;
+    --icon-hover-bg: #222225;
+    --action-hover-bg: #26262A;
+    --accent: #4CC38A;
+    --fast: #4CC38A;
+    --medium: #A1A1A6;
+    --slow: #E5A93B;
+    --timeout: #E5484D;
+    --input-bg: #1B1B1E;
+    --input-focus-bg: #1F1F23;
+    --input-border: rgba(255, 255, 255, 0.09);
+    --input-focus-border: rgba(255, 255, 255, 0.28);
+    --input-placeholder: #636369;
+    --btn-sec-bg: #262629;
+    --btn-sec-hover: #303034;
+    --btn-sec-border: rgba(255, 255, 255, 0.11);
+    --btn-sec-hover-border: rgba(255, 255, 255, 0.17);
+    --btn-sec-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 1px 2px rgba(0, 0, 0, 0.28);
+    --tooltip-bg: #1B1B1E;
+    --tooltip-border: rgba(255, 255, 255, 0.1);
+    --tooltip-text: #EDEDED;
+    --tooltip-shadow: 0 8px 20px rgba(0, 0, 0, 0.48);
+    --mono-accent: #EDEDED;
+    --mono-accent-hover: #FFFFFF;
+    --mono-accent-text: #141415;
+    --mono-focus-border: rgba(255, 255, 255, 0.28);
+    --seg-bg: #1A1A1C;
+    --seg-border: rgba(255, 255, 255, 0.08);
+    --seg-active-bg: #323235;
+    --seg-active-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --switch-off-bg: #2E2E32;
+    --switch-off-thumb: #8E8E93;
+    --switch-on-bg: #EDEDED;
+    --switch-on-thumb: #141415;
+    --title-divider: rgba(255, 255, 255, 0.12);
+    --kb-ring: rgba(255, 255, 255, 0.26);
+    --scroll-thumb: rgba(255, 255, 255, 0.09);
     --scroll-thumb-hover: rgba(255, 255, 255, 0.22);
     --scroll-thumb-active: rgba(255, 255, 255, 0.36);
     --pill-hover: rgba(255, 255, 255, 0.06);
@@ -52,38 +66,52 @@
 
   html.light {
     --bg: #FFFFFF;
-    --chrome-bg: #F6F7F9;
+    --chrome-bg: #FAFAFA;
     --text: #171717;
     --text-muted: #737373;
     --text-sub: #737373;
     --text-soft: #525252;
     --text-footer: #737373;
-    --border: rgba(23, 23, 23, 0.06);
-    --border-outer: #E5E5E5;
-    --active-bg: #F0F7F4;
-    --hover-bg: #F7F8FA;
-    --icon-hover-bg: #EAECEF;
-    --action-hover-bg: #EAECEF;
-    --accent: #059669;
-    --accent-hover: #047857;
-    --accent-btn-text: #FFFFFF;
-    --fast: #059669;
+    --border: rgba(23, 23, 23, 0.08);
+    --border-outer: #E4E4E7;
+    --active-bg: #F4F4F5;
+    --hover-bg: #F7F7F8;
+    --icon-hover-bg: #ECECEE;
+    --action-hover-bg: #E4E4E7;
+    --accent: #16A34A;
+    --fast: #16A34A;
     --medium: #525252;
     --slow: #B45309;
     --timeout: #DC2626;
-    --input-bg: #F6F7F9;
+    --input-bg: #F4F4F5;
     --input-focus-bg: #FFFFFF;
-    --input-border: rgba(23, 23, 23, 0.08);
-    --input-focus-border: rgba(5, 150, 105, 0.6);
+    --input-border: rgba(23, 23, 23, 0.1);
+    --input-focus-border: rgba(23, 23, 23, 0.35);
     --input-placeholder: #9CA3AF;
-    --chevron-color: #9CA3AF;
-    --restore-hover-bg: #F3F4F6;
-    --empty-btn-bg: #F4F4F5;
-    --empty-btn-hover: #E5E5E7;
-    --checkbox-border: rgba(23, 23, 23, 0.28);
-    --shield-fill: rgba(23, 23, 23, 0.08);
-    --kb-ring: rgba(23, 23, 23, 0.2);
-    --scroll-thumb: rgba(23, 23, 23, 0.08);
+    --btn-sec-bg: #FFFFFF;
+    --btn-sec-hover: #F4F4F5;
+    --btn-sec-border: rgba(23, 23, 23, 0.12);
+    --btn-sec-hover-border: rgba(23, 23, 23, 0.18);
+    --btn-sec-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --tooltip-bg: #FFFFFF;
+    --tooltip-border: #E4E4E7;
+    --tooltip-text: #171717;
+    --tooltip-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+    --mono-accent: #171717;
+    --mono-accent-hover: #2A2A2D;
+    --mono-accent-text: #FFFFFF;
+    --mono-focus-border: rgba(23, 23, 23, 0.35);
+    --seg-bg: #F1F1F3;
+    --seg-border: rgba(23, 23, 23, 0.08);
+    --seg-active-bg: #FFFFFF;
+    --seg-active-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
+    --switch-off-bg: #D4D4D8;
+    --switch-off-thumb: #FFFFFF;
+    --switch-on-bg: #171717;
+    --switch-on-thumb: #FFFFFF;
+    --title-divider: rgba(23, 23, 23, 0.12);
+    --kb-ring: rgba(23, 23, 23, 0.22);
+    --scroll-thumb: rgba(23, 23, 23, 0.09);
     --scroll-thumb-hover: rgba(23, 23, 23, 0.22);
     --scroll-thumb-active: rgba(23, 23, 23, 0.34);
     --pill-hover: rgba(23, 23, 23, 0.06);
@@ -147,10 +175,9 @@
   html.suspend-hover .dns-row:hover .grip-icon { opacity: 0; }
   html.suspend-hover .dns-row:hover .row-actions { opacity: 0; pointer-events: none; }
   html.suspend-hover .dns-row:hover .row-status { opacity: 1; pointer-events: auto; }
-  html.suspend-hover .settings-add-row:hover,
-  html.suspend-hover .settings-check-row:hover,
-  html.suspend-hover .settings-update-row:hover { background: transparent; }
-  html.suspend-hover .restore-btn:hover { color: var(--text-soft); background: transparent; }
+  html.suspend-hover .settings-toggle-row:hover { background: transparent; }
+  html.suspend-hover .settings-action-btn:hover,
+  html.suspend-hover .empty-restore-btn:hover { background: var(--btn-sec-bg); border-color: var(--btn-sec-border); }
   html.suspend-hover .adapter-pill:hover { background: transparent; }
   html.suspend-hover .adapter-pill:hover .adapter-text { color: var(--text-soft); }
   html.suspend-hover .tooltip { opacity: 0 !important; }
@@ -175,23 +202,16 @@
   .brand {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
     color: var(--text);
-  }
-
-  .shield-icon {
-    width: 16px;
-    height: 16px;
-    color: var(--text-soft);
-    fill: var(--shield-fill);
   }
 
   .back-btn {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     margin-left: -6px;
     padding: 4px 6px;
     border: 0;
@@ -199,14 +219,17 @@
     background: transparent;
     color: var(--text);
     font-family: inherit;
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
     cursor: pointer;
-    transition: background-color 150ms var(--ease-unslop);
+    transition: background-color 150ms var(--ease-unslop), transform 140ms var(--ease-unslop);
   }
 
   .back-btn:hover { background: var(--icon-hover-bg); }
-  .back-btn svg { width: 16px; height: 16px; color: var(--text-soft); }
+  .back-btn:active { transform: scale(0.98); }
+  .back-btn:focus-visible { outline: 1px solid var(--kb-ring); }
+  .back-btn svg { width: 15px; height: 15px; color: var(--text-muted); }
 
   .drag-spacer {
     flex: 1;
@@ -218,6 +241,14 @@
     display: flex;
     align-items: center;
     gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .title-divider {
+    width: 1px;
+    height: 14px;
+    margin: 0 5px;
+    background: var(--title-divider);
     flex-shrink: 0;
   }
 
@@ -257,13 +288,13 @@
     transform: translateX(-50%) translateY(3px) scale(0.96);
     padding: 4px 8px;
     border-radius: 6px;
-    background: #14171D;
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    color: #EDF0F5;
+    background: var(--tooltip-bg);
+    border: 1px solid var(--tooltip-border);
+    color: var(--tooltip-text);
     font-size: 11px;
     font-weight: 500;
     white-space: nowrap;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.48);
+    box-shadow: var(--tooltip-shadow);
     pointer-events: none;
     opacity: 0;
     z-index: 40;
@@ -529,24 +560,20 @@
     text-overflow: ellipsis;
   }
 
-  .row-cat {
-    font-size: 11px;
-    line-height: 15px;
-    font-weight: 400;
-    color: var(--text-sub);
-    flex-shrink: 0;
-  }
-
-  .row-ips {
+  .row-ips,
+  .row-sub {
     font-size: 12px;
     line-height: 16px;
     margin-top: 1px;
-    font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums;
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .row-ips {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
   }
 
   .row-right {
@@ -619,6 +646,11 @@
     background: var(--action-hover-bg);
   }
 
+  .action-btn.delete:hover {
+    color: var(--timeout);
+  }
+
+  .action-btn:focus-visible { outline: 1px solid var(--kb-ring); }
   .action-btn svg { width: 14px; height: 14px; }
 
   .ping-btn {
@@ -660,65 +692,68 @@
   .empty-restore-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
-    height: 32px;
+    height: 30px;
     padding: 0 12px;
-    border: 0;
-    border-radius: 8px;
-    background: var(--empty-btn-bg);
+    border: 1px solid var(--btn-sec-border);
+    border-radius: 7px;
+    background: var(--btn-sec-bg);
     color: var(--text);
+    box-shadow: var(--btn-sec-shadow);
     font-family: inherit;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
+    transition: background-color 140ms var(--ease-unslop), border-color 140ms var(--ease-unslop), transform 140ms var(--ease-unslop);
   }
-  .empty-restore-btn:hover { background: var(--empty-btn-hover); }
-  .empty-restore-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .empty-restore-btn:hover { background: var(--btn-sec-hover); border-color: var(--btn-sec-hover-border); }
+  .empty-restore-btn:active { transform: scale(0.97); }
+  .empty-restore-btn:focus-visible { outline: 2px solid var(--kb-ring); outline-offset: 2px; }
+  .empty-restore-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
 
   /* Settings View */
-  .settings-add-row {
+  .settings-row {
     width: 100%;
     padding: 12px 16px;
-    border: 0;
     border-bottom: 1px solid var(--border);
-    background: transparent;
-    color: var(--text);
-    font-family: inherit;
-    font-size: 13px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    text-align: left;
-    cursor: pointer;
     transition: background-color 150ms ease;
   }
 
-  .settings-add-row:hover { background: var(--hover-bg); }
+  .settings-row.last-row { border-bottom: 0; }
+  .settings-toggle-row { cursor: pointer; }
+  .settings-toggle-row:hover { background: var(--hover-bg); }
 
-  .settings-add-left {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    font-weight: 500;
-  }
-
-  .settings-add-left svg { width: 16px; height: 16px; color: var(--text-soft); }
-  .settings-chevron { width: 14px; height: 14px; color: var(--chevron-color); }
-
-  .settings-check-row {
-    padding: 12px 16px;
+  .settings-row-text {
+    min-width: 0;
+    flex: 1;
     display: flex;
-    align-items: center;
-    gap: 12px;
-    cursor: pointer;
-    font-size: 13px;
-    color: var(--text);
-    border-bottom: 1px solid var(--border);
-    transition: background-color 150ms ease;
+    flex-direction: column;
+    gap: 2px;
   }
 
-  .settings-check-row:hover { background: var(--hover-bg); }
+  .settings-row-title {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .settings-row-sub {
+    font-size: 11.5px;
+    line-height: 15px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .settings-row-sub.ok { color: var(--text-soft); }
+  .settings-row-sub.err { color: var(--timeout); }
 
   .sr-only {
     position: absolute;
@@ -731,49 +766,82 @@
     border: 0;
   }
 
-  .custom-checkbox {
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
+  /* Segmented Control */
+  .seg-control {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px;
+    border-radius: 8px;
+    background: var(--seg-bg);
+    border: 1px solid var(--seg-border);
+    flex-shrink: 0;
+  }
+
+  .seg-btn {
+    height: 24px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 150ms var(--ease-unslop), color 150ms var(--ease-unslop), box-shadow 150ms var(--ease-unslop);
+  }
+
+  .seg-btn:hover:not(.active) { color: var(--text); }
+
+  .seg-btn.active {
+    background: var(--seg-active-bg);
+    color: var(--text);
+    box-shadow: var(--seg-active-shadow);
+  }
+
+  .seg-btn:focus-visible { outline: 1px solid var(--kb-ring); outline-offset: -1px; }
+
+  /* Monochrome Pill Toggle Switch */
+  .toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    padding: 3px;
+    border-radius: 10px;
+    background: var(--switch-off-bg);
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    border: 1px solid var(--checkbox-border);
-    background: transparent;
-    transition: background-color 150ms ease, border-color 150ms ease;
+    transition: background-color 150ms var(--ease-unslop);
   }
 
-  .custom-checkbox.checked {
-    background: var(--accent);
-    border-color: var(--accent);
+  .toggle-switch.checked { background: var(--switch-on-bg); }
+
+  .toggle-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 9999px;
+    background: var(--switch-off-thumb);
+    transform: translateX(0);
+    transition: transform 150ms var(--ease-unslop), background-color 150ms var(--ease-unslop);
   }
 
-  .custom-checkbox svg { width: 12px; height: 12px; color: #FFFFFF; }
+  .toggle-switch.checked .toggle-thumb {
+    background: var(--switch-on-thumb);
+    transform: translateX(16px);
+  }
+
+  .settings-toggle-row input:focus-visible + .toggle-switch {
+    outline: 2px solid var(--kb-ring);
+    outline-offset: 2px;
+  }
 
   .settings-domain-row {
-    padding: 10px 16px;
+    padding: 12px 16px;
     border-bottom: 1px solid var(--border);
     display: flex;
     flex-direction: column;
-    gap: 6px;
-  }
-
-  .settings-domain-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
     gap: 8px;
-  }
-
-  .settings-domain-label {
-    font-size: 13px;
-    color: var(--text);
-  }
-
-  .settings-domain-hint {
-    font-size: 11px;
-    color: var(--text-muted);
   }
 
   .settings-domain-form {
@@ -785,10 +853,10 @@
   .settings-domain-input {
     flex: 1;
     min-width: 0;
-    height: 28px;
-    padding: 0 9px;
+    height: 30px;
+    padding: 0 10px;
     border: 1px solid var(--input-border);
-    border-radius: 6px;
+    border-radius: 7px;
     background: var(--input-bg);
     color: var(--text);
     font-family: var(--font-mono);
@@ -798,142 +866,82 @@
 
   .settings-domain-input:focus {
     outline: none;
-    border-color: var(--input-focus-border);
+    border-color: var(--mono-focus-border);
     background: var(--input-focus-bg);
   }
 
-  .settings-domain-btn {
-    height: 28px;
-    padding: 0 10px;
-    border: 1px solid var(--input-border);
-    border-radius: 6px;
-    background: var(--empty-btn-bg);
+  .settings-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 72px;
+    height: 30px;
+    padding: 0 12px;
+    border: 1px solid var(--btn-sec-border);
+    border-radius: 7px;
+    background: var(--btn-sec-bg);
     color: var(--text);
+    box-shadow: var(--btn-sec-shadow);
     font-family: inherit;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    flex-shrink: 0;
-    transition: background-color 150ms ease;
-  }
-
-  .settings-domain-btn:hover { background: var(--empty-btn-hover); }
-
-  .settings-update-row {
-    width: 100%;
-    padding: 11px 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    transition: background-color 150ms ease;
-  }
-
-  .settings-update-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: var(--text);
-    font-family: inherit;
-    font-size: 13px;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .settings-update-btn:disabled {
-    cursor: default;
-    opacity: 0.72;
-  }
-
-  .settings-update-btn svg {
-    width: 15px;
-    height: 15px;
-    color: var(--text-soft);
-    flex-shrink: 0;
-  }
-
-  .settings-update-meta {
-    font-size: 11px;
-    font-family: var(--font-mono);
-    color: var(--text-muted);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 170px;
+    flex-shrink: 0;
+    transition: background-color 140ms var(--ease-unslop), border-color 140ms var(--ease-unslop), transform 140ms var(--ease-unslop);
   }
 
-  .settings-update-meta.ok { color: var(--fast); }
-  .settings-update-meta.err { color: var(--timeout); }
+  .settings-action-btn:hover:not(:disabled) {
+    background: var(--btn-sec-hover);
+    border-color: var(--btn-sec-hover-border);
+  }
+
+  .settings-action-btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  .settings-action-btn:focus-visible {
+    outline: 2px solid var(--kb-ring);
+    outline-offset: 2px;
+  }
+
+  .settings-action-btn:disabled {
+    cursor: default;
+    opacity: 0.55;
+  }
 
   .settings-download-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 5px;
-    height: 26px;
-    padding: 0 9px;
+    height: 30px;
+    padding: 0 12px;
     border: 0;
-    border-radius: 6px;
-    background: var(--accent);
-    color: var(--accent-btn-text);
+    border-radius: 7px;
+    background: var(--mono-accent);
+    color: var(--mono-accent-text);
     font-family: inherit;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
     flex-shrink: 0;
-    transition: background-color 150ms ease;
+    transition: background-color 140ms var(--ease-unslop), transform 140ms var(--ease-unslop);
   }
 
-  .settings-download-btn:hover { background: var(--accent-hover); }
+  .settings-download-btn:hover { background: var(--mono-accent-hover); }
+  .settings-download-btn:active { transform: scale(0.97); }
+  .settings-download-btn:focus-visible { outline: 2px solid var(--kb-ring); outline-offset: 2px; }
   .settings-download-btn svg { width: 12px; height: 12px; }
-
-  .settings-footer-action {
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-  }
-
-  .restore-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    margin: 0 -8px;
-    padding: 6px 8px;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-soft);
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: color 150ms ease, background-color 150ms ease;
-  }
-
-  .restore-btn:hover {
-    color: var(--text);
-    background: var(--restore-hover-bg);
-  }
-  .restore-btn svg { width: 16px; height: 16px; }
 
   /* Add / Edit DNS Inline Form */
   .dns-form {
-    padding: 12px;
+    padding: 10px 16px;
     display: flex;
     flex-direction: column;
     gap: 8px;
-  }
-
-  .form-row-2fr-1fr {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 10px;
   }
 
   .form-row-2col {
@@ -966,12 +974,12 @@
     color: var(--text-footer);
   }
 
-  .field-input, .field-select {
+  .field-input {
     width: 100%;
     height: 32px;
     padding: 0 10px;
     border: 1px solid var(--input-border);
-    border-radius: 8px;
+    border-radius: 7px;
     background: var(--input-bg);
     color: var(--text);
     font-family: inherit;
@@ -986,34 +994,14 @@
 
   .field-input::placeholder { color: var(--input-placeholder); }
 
-  .field-input:focus, .field-select:focus {
+  .field-input:focus {
     outline: none;
     border-color: var(--input-focus-border);
     background: var(--input-focus-bg);
   }
 
-  .select-wrap { position: relative; }
-
-  .field-select {
-    appearance: none;
-    padding-right: 26px;
-    cursor: pointer;
-  }
-
-  html:not(.light) .field-select,
   html:not(.light) .field-input {
     color-scheme: dark;
-  }
-
-  .select-chevron {
-    position: absolute;
-    right: 9px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 14px;
-    height: 14px;
-    color: var(--text-muted);
-    pointer-events: none;
   }
 
   .adv-toggle-btn {
@@ -1022,6 +1010,7 @@
     gap: 6px;
     padding: 2px 0;
     border: 0;
+    border-radius: 4px;
     background: transparent;
     color: var(--text-muted);
     font-family: inherit;
@@ -1033,6 +1022,7 @@
   }
 
   .adv-toggle-btn:hover { color: var(--text); }
+  .adv-toggle-btn:focus-visible { outline: 1px solid var(--kb-ring); outline-offset: 2px; }
   .adv-toggle-btn svg { width: 14px; height: 14px; }
 
   .adv-fields {
@@ -1045,7 +1035,7 @@
   .form-error {
     font-size: 12px;
     font-weight: 500;
-    color: #ef4444;
+    color: var(--timeout);
   }
 
   .save-btn {
@@ -1053,18 +1043,19 @@
     height: 32px;
     padding: 0 16px;
     border: 0;
-    border-radius: 8px;
-    background: var(--accent);
-    color: var(--accent-btn-text);
+    border-radius: 7px;
+    background: var(--mono-accent);
+    color: var(--mono-accent-text);
     font-family: inherit;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: background-color 150ms var(--ease-unslop), color 150ms var(--ease-unslop);
+    transition: background-color 150ms var(--ease-unslop), color 150ms var(--ease-unslop), transform 140ms var(--ease-unslop);
   }
 
-  .save-btn:hover { background: var(--accent-hover); }
+  .save-btn:hover { background: var(--mono-accent-hover); }
   .save-btn:active { transform: scale(0.99); }
+  .save-btn:focus-visible { outline: 2px solid var(--kb-ring); outline-offset: 2px; }
 
   /* Status Footer */
   .status-bar {
@@ -1153,7 +1144,7 @@
     transform: translateY(-3px);
   }
 
-  .status-msg.error { color: #f87171; }
+  .status-msg.error { color: var(--timeout); }
 </style>
 </head>
 <body>
@@ -1189,26 +1180,20 @@
 <script>
 (() => {
   const ICONS = {
-    shield: `<svg class="shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>`,
     settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>`,
     minus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg>`,
     x: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
-    arrowLeft: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>`,
+    chevronLeft: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>`,
     plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`,
-    chevronRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`,
-    chevronDown: `<svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`,
     check: `<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`,
-    checkSmall: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`,
     rotateCcw: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`,
     pencil: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`,
     trash2: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
     grip: `<svg class="grip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>`,
-    download: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
-    refresh: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>`
+    download: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`
   };
 
   const DHCP_ID = '__dhcp__';
-  const CATEGORIES = ['Custom', 'Privacy', 'Ad-Block', 'Security', 'Speed', 'Family'];
 
   const appState = {
     appVersion: '',
@@ -1313,10 +1298,6 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
-  }
-
-  function formatCategory(cat) {
-    return cat === 'Ad-Block' ? 'Ad-block' : cat;
   }
 
   function latencyInfo(ms, probing, resolveStatus, resolvedIp, domain) {
@@ -1504,14 +1485,14 @@
     activeTooltipHiders.clear();
 
     if (viewMode === 'settings') {
-      left.innerHTML = `<button type="button" class="back-btn" id="btn-back" aria-label="Back to DNS servers">${ICONS.arrowLeft}<span>Settings</span></button>`;
+      left.innerHTML = `<button type="button" class="back-btn" id="btn-back" aria-label="Back to DNS servers">${ICONS.chevronLeft}<span>Settings</span></button>`;
       document.getElementById('btn-back').onclick = () => {
         playSound('click');
         transitionView('servers');
       };
     } else if (viewMode === 'add-dns') {
       const label = editingProfile ? 'Edit DNS' : 'Add DNS';
-      left.innerHTML = `<button type="button" class="back-btn" id="btn-back" aria-label="Back to DNS servers">${ICONS.arrowLeft}<span>${label}</span></button>`;
+      left.innerHTML = `<button type="button" class="back-btn" id="btn-back" aria-label="Back to DNS servers">${ICONS.chevronLeft}<span>${label}</span></button>`;
       document.getElementById('btn-back').onclick = () => {
         playSound('click');
         const target = formReturnView;
@@ -1521,7 +1502,7 @@
         });
       };
     } else {
-      left.innerHTML = `<div class="brand">${ICONS.shield}<span>ShiftDNS</span></div>`;
+      left.innerHTML = `<div class="brand">ShiftDNS</div>`;
     }
 
     controls.innerHTML = '';
@@ -1535,15 +1516,19 @@
     };
 
     if (viewMode === 'servers') {
+      addControl('btn-add', 'Add custom DNS', 'Add DNS (Ctrl+N)', ICONS.plus, false, () => {
+        playSound('click');
+        openAddForm('servers');
+      });
       addControl('btn-settings', 'Settings', 'Settings', ICONS.settings, false, () => {
         playSound('click');
         transitionView('settings');
       });
+      const divider = document.createElement('span');
+      divider.className = 'title-divider';
+      divider.setAttribute('aria-hidden', 'true');
+      controls.appendChild(divider);
     }
-    addControl('btn-min', 'Minimize window', 'Minimize', ICONS.minus, true, () => {
-      playSound('click');
-      animateHideAndPost('taskbar');
-    });
     addControl('btn-close', 'Close ShiftDNS to system tray', 'Close to tray (Esc)', ICONS.x, true, () => {
       playSound('click');
       animateHideAndPost('tray');
@@ -1766,7 +1751,7 @@
       <button type="button" class="dhcp-btn" aria-pressed="${dhcpActive}">
         <div class="row-info">
           <div class="row-name">System Default (DHCP)</div>
-          <div class="row-ips" style="font-family: var(--font-sans);">Automatic ISP DNS</div>
+          <div class="row-sub">Automatic ISP DNS</div>
         </div>
         ${dhcpActive ? `<span class="check-badge ${activeChanged ? 'check-pre-enter' : ''}">${ICONS.check}</span>` : ''}
       </button>
@@ -1819,7 +1804,6 @@
             <div class="row-info">
               <div class="row-title-line">
                 <span class="row-name">${escHtml(p.name)}</span>
-                <span class="row-cat">${escHtml(formatCategory(p.category))}</span>
               </div>
               <div class="row-ips">${escHtml(ips)}</div>
             </div>
@@ -2114,12 +2098,31 @@
     );
   }
 
-  function renderUpdateRightSlot(container) {
-    if (!container) return;
+  function renderUpdateRowState(subEl, slotEl) {
     const u = appState.updateState || { status: 'idle' };
+    if (subEl) {
+      let subText = appState.appVersion ? `Version ${appState.appVersion}` : 'GitHub Releases';
+      let subCls = 'settings-row-sub';
+      if (u.status === 'checking') {
+        subText = 'Checking GitHub...';
+      } else if (u.status === 'up_to_date') {
+        subText = appState.appVersion ? `Up to date · v${appState.appVersion}` : 'Up to date';
+        subCls = 'settings-row-sub ok';
+      } else if (u.status === 'available') {
+        subText = `Update ${u.latestVersion || ''} ready`.trim();
+        subCls = 'settings-row-sub ok';
+      } else if (u.status === 'error') {
+        subText = u.message || 'Check failed';
+        subCls = 'settings-row-sub err';
+      }
+      subEl.className = subCls;
+      subEl.textContent = subText;
+      subEl.title = subText;
+    }
+    if (!slotEl) return;
     if (u.status === 'available' && u.downloadUrl) {
-      container.innerHTML = `<button type="button" class="settings-download-btn" id="settings-download-update" title="Download ShiftDNS-Setup.exe">${ICONS.download}<span>Download ${escHtml(u.latestVersion || 'update')}</span></button>`;
-      const dlBtn = container.querySelector('#settings-download-update');
+      slotEl.innerHTML = `<button type="button" class="settings-download-btn" id="settings-download-update" title="Download ShiftDNS-Setup.exe">${ICONS.download}<span>Download ${escHtml(u.latestVersion || '')}</span></button>`;
+      const dlBtn = slotEl.querySelector('#settings-download-update');
       if (dlBtn) {
         dlBtn.onclick = () => {
           playSound('click');
@@ -2128,17 +2131,38 @@
       }
       return;
     }
-    if (u.status === 'checking') {
-      container.innerHTML = `<span class="settings-update-meta">Checking...</span>`;
-    } else if (u.status === 'up_to_date') {
-      container.innerHTML = `<span class="settings-update-meta ok">Up to date</span>`;
-    } else if (u.status === 'error') {
-      container.innerHTML = `<span class="settings-update-meta err" title="${escHtml(u.message || 'Check failed')}">${escHtml(u.message || 'Check failed')}</span>`;
-    } else {
-      container.innerHTML = appState.appVersion
-        ? `<span class="settings-update-meta">v${escHtml(appState.appVersion)}</span>`
-        : '';
+    slotEl.innerHTML = `<button type="button" class="settings-action-btn" id="settings-check-update" ${u.status === 'checking' ? 'disabled' : ''}>${u.status === 'checking' ? 'Checking...' : 'Check'}</button>`;
+    const chkBtn = slotEl.querySelector('#settings-check-update');
+    if (chkBtn) {
+      chkBtn.onclick = () => {
+        playSound('click');
+        postIpc({ type: 'checkUpdate' });
+      };
     }
+  }
+
+  function syncSettingsControls() {
+    document.querySelectorAll('button[data-theme-btn]').forEach((btn) => {
+      const isActive = (btn.dataset.themeBtn === 'dark') === Boolean(appState.darkMode);
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', String(isActive));
+    });
+    const settingMap = {
+      soundEffects: appState.soundEffects,
+      enableIpv6: appState.enableIpv6,
+      enableDoh: appState.enableDoh,
+      startMinimized: appState.startMinimized,
+      launchAtStartup: appState.launchAtStartup,
+    };
+    document.querySelectorAll('input[data-setting]').forEach((input) => {
+      const key = input.dataset.setting;
+      if (!(key in settingMap)) return;
+      const checked = Boolean(settingMap[key]);
+      input.checked = checked;
+      input.setAttribute('aria-checked', String(checked));
+      const sw = input.parentElement && input.parentElement.querySelector('.toggle-switch');
+      if (sw) sw.classList.toggle('checked', checked);
+    });
   }
 
   function renderSettingsView(main, animateView) {
@@ -2147,33 +2171,39 @@
     const wrap = document.createElement('div');
 
     const items = [
-      { key: 'darkMode', checked: appState.darkMode, label: 'Use dark theme' },
-      { key: 'soundEffects', checked: appState.soundEffects, label: 'Play subtle UI sounds' },
-      { key: 'enableIpv6', checked: appState.enableIpv6, label: 'Apply IPv6 DNS alongside IPv4' },
-      { key: 'enableDoh', checked: appState.enableDoh, label: 'Enable Windows 11 DNS-over-HTTPS (DoH)' },
-      { key: 'startMinimized', checked: appState.startMinimized, label: 'Start minimized in system tray' },
-      { key: 'launchAtStartup', checked: appState.launchAtStartup, label: 'Launch at Windows sign-in' },
+      { key: 'launchAtStartup', checked: appState.launchAtStartup, title: 'Launch at startup', sub: 'Run ShiftDNS at Windows sign-in' },
+      { key: 'startMinimized', checked: appState.startMinimized, title: 'Start minimized', sub: 'Open quietly in system tray' },
+      { key: 'enableDoh', checked: appState.enableDoh, title: 'DNS-over-HTTPS', sub: 'Enable Windows 11 DoH templates' },
+      { key: 'enableIpv6', checked: appState.enableIpv6, title: 'IPv6 DNS', sub: 'Apply IPv6 alongside IPv4' },
+      { key: 'soundEffects', checked: appState.soundEffects, title: 'UI sounds', sub: 'Play subtle click and switch cues' },
     ];
-
-    const u = appState.updateState || { status: 'idle' };
 
     wrap.innerHTML = `
       <div class="settings-scroll scroll-fade">
-        <button type="button" class="settings-add-row" id="settings-add-dns">
-          <span class="settings-add-left">${ICONS.plus}<span>Add custom DNS</span></span>
-          <span class="settings-chevron">${ICONS.chevronRight}</span>
-        </button>
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">Appearance</span>
+            <span class="settings-row-sub">Window and tray theme</span>
+          </div>
+          <div class="seg-control" role="group" aria-label="Appearance">
+            <button type="button" class="seg-btn ${appState.darkMode ? 'active' : ''}" data-theme-btn="dark" aria-pressed="${appState.darkMode}">Dark</button>
+            <button type="button" class="seg-btn ${!appState.darkMode ? 'active' : ''}" data-theme-btn="light" aria-pressed="${!appState.darkMode}">Light</button>
+          </div>
+        </div>
         ${items.map((item) => `
-          <label class="settings-check-row">
-            <input type="checkbox" class="sr-only" data-setting="${item.key}" ${item.checked ? 'checked' : ''} />
-            <span class="custom-checkbox ${item.checked ? 'checked' : ''}" aria-hidden="true">${item.checked ? ICONS.checkSmall : ''}</span>
-            <span>${escHtml(item.label)}</span>
+          <label class="settings-row settings-toggle-row">
+            <div class="settings-row-text">
+              <span class="settings-row-title">${escHtml(item.title)}</span>
+              <span class="settings-row-sub">${escHtml(item.sub)}</span>
+            </div>
+            <input type="checkbox" role="switch" class="sr-only" data-setting="${item.key}" aria-checked="${item.checked}" ${item.checked ? 'checked' : ''} />
+            <span class="toggle-switch ${item.checked ? 'checked' : ''}" aria-hidden="true"><span class="toggle-thumb"></span></span>
           </label>
         `).join('')}
         <div class="settings-domain-row">
-          <div class="settings-domain-head">
-            <label for="settings-resolve-domain" class="settings-domain-label">Resolve check domain</label>
-            <span class="settings-domain-hint">Catches 0.0.0.0 / blocked IPs</span>
+          <div class="settings-row-text">
+            <label for="settings-resolve-domain" class="settings-row-title">Resolve check domain</label>
+            <span class="settings-row-sub">Catches 0.0.0.0 and blocked IPs</span>
           </div>
           <form class="settings-domain-form" id="settings-domain-form">
             <input
@@ -2184,34 +2214,37 @@
               placeholder="cloudflare.com"
               spellcheck="false"
             />
-            <button type="submit" class="settings-domain-btn">Apply</button>
+            <button type="submit" class="settings-action-btn">Apply</button>
           </form>
         </div>
-        <div class="settings-update-row">
-          <button
-            type="button"
-            class="settings-update-btn"
-            id="settings-check-update"
-            ${u.status === 'checking' ? 'disabled' : ''}
-          >
-            ${ICONS.refresh}
-            <span>Check for updates</span>
-          </button>
+        <div class="settings-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">Updates</span>
+            <span class="settings-row-sub" id="settings-update-sub"></span>
+          </div>
           <div id="settings-update-slot"></div>
         </div>
-        <div class="settings-footer-action">
-          <button type="button" class="restore-btn" id="settings-restore-defaults">
-            ${ICONS.rotateCcw}
-            <span>Restore default presets</span>
-          </button>
+        <div class="settings-row last-row">
+          <div class="settings-row-text">
+            <span class="settings-row-title">Default presets</span>
+            <span class="settings-row-sub">Restore built-in DNS servers</span>
+          </div>
+          <button type="button" class="settings-action-btn" id="settings-restore-defaults">Restore</button>
         </div>
       </div>
     `;
 
-    wrap.querySelector('#settings-add-dns').onclick = () => {
-      playSound('click');
-      openAddForm('settings');
-    };
+    wrap.querySelectorAll('button[data-theme-btn]').forEach((btn) => {
+      btn.onclick = () => {
+        const nextDark = btn.dataset.themeBtn === 'dark';
+        if (Boolean(appState.darkMode) === nextDark) return;
+        appState.darkMode = nextDark;
+        applyTheme();
+        syncSettingsControls();
+        playSound(nextDark ? 'toggleOn' : 'toggleOff');
+        postIpc({ type: 'toggleSetting', key: 'darkMode', value: nextDark });
+      };
+    });
     wrap.querySelector('#settings-domain-form').onsubmit = (ev) => {
       ev.preventDefault();
       const input = wrap.querySelector('#settings-resolve-domain');
@@ -2224,11 +2257,10 @@
       playSound('save');
       postIpc({ type: 'setResolveDomain', domain: val });
     };
-    wrap.querySelector('#settings-check-update').onclick = () => {
-      playSound('click');
-      postIpc({ type: 'checkUpdate' });
-    };
-    renderUpdateRightSlot(wrap.querySelector('#settings-update-slot'));
+    renderUpdateRowState(
+      wrap.querySelector('#settings-update-sub'),
+      wrap.querySelector('#settings-update-slot')
+    );
     wrap.querySelector('#settings-restore-defaults').onclick = () => {
       playSound('save');
       postIpc({ type: 'resetDefaults' });
@@ -2237,6 +2269,8 @@
     wrap.querySelectorAll('input[data-setting]').forEach((input) => {
       input.onchange = () => {
         const key = input.dataset.setting;
+        appState[key] = input.checked;
+        syncSettingsControls();
         if (key === 'soundEffects') {
           if (input.checked) playSound('toggleOn', true);
         } else {
@@ -2317,20 +2351,9 @@
     wrap.innerHTML = `
       <div class="form-scroll scroll-fade">
         <form class="dns-form" id="dns-form">
-          <div class="form-row-2fr-1fr">
-            <div>
-              <label for="f-name" class="field-label mb">Name</label>
-              <input id="f-name" class="field-input" type="text" value="${escHtml(p.name)}" placeholder="NextDNS" />
-            </div>
-            <div>
-              <label for="f-cat" class="field-label mb">Category</label>
-              <div class="select-wrap">
-                <select id="f-cat" class="field-select">
-                  ${CATEGORIES.map((c) => `<option value="${c}" ${p.category === c ? 'selected' : ''}>${c}</option>`).join('')}
-                </select>
-                ${ICONS.chevronDown}
-              </div>
-            </div>
+          <div>
+            <label for="f-name" class="field-label mb">Name</label>
+            <input id="f-name" class="field-input" type="text" value="${escHtml(p.name)}" placeholder="NextDNS" />
           </div>
 
           <div class="form-row-2col">
@@ -2413,7 +2436,7 @@
       const payload = {
         id: editingProfile ? editingProfile.id : null,
         name: wrap.querySelector('#f-name').value.trim(),
-        category: wrap.querySelector('#f-cat').value,
+        category: editingProfile ? (editingProfile.category || 'Custom') : 'Custom',
         primary_v4: wrap.querySelector('#f-p4').value.trim(),
         secondary_v4: wrap.querySelector('#f-s4').value.trim(),
         primary_v6: wrap.querySelector('#f-p6').value.trim(),
@@ -2584,34 +2607,15 @@
       applyTheme();
       renderFooter();
       if (viewMode === 'settings') {
-        const settingMap = {
-          darkMode: appState.darkMode,
-          soundEffects: appState.soundEffects,
-          enableIpv6: appState.enableIpv6,
-          enableDoh: appState.enableDoh,
-          startMinimized: appState.startMinimized,
-          launchAtStartup: appState.launchAtStartup,
-        };
-        document.querySelectorAll('input[data-setting]').forEach((input) => {
-          const key = input.dataset.setting;
-          if (!(key in settingMap)) return;
-          const checked = Boolean(settingMap[key]);
-          input.checked = checked;
-          const box = input.parentElement && input.parentElement.querySelector('.custom-checkbox');
-          if (box) {
-            box.classList.toggle('checked', checked);
-            box.innerHTML = checked ? ICONS.checkSmall : '';
-          }
-        });
+        syncSettingsControls();
         const domainInput = document.getElementById('settings-resolve-domain');
         if (domainInput && document.activeElement !== domainInput && appState.resolveCheckDomain) {
           domainInput.value = appState.resolveCheckDomain;
         }
-        const checkBtn = document.getElementById('settings-check-update');
-        if (checkBtn) {
-          checkBtn.disabled = Boolean(appState.updateState && appState.updateState.status === 'checking');
-        }
-        renderUpdateRightSlot(document.getElementById('settings-update-slot'));
+        renderUpdateRowState(
+          document.getElementById('settings-update-sub'),
+          document.getElementById('settings-update-slot')
+        );
       }
     }
   };

@@ -1,6 +1,6 @@
 [Setup]
 AppName=ShiftDNS
-AppVersion=1.1.6
+AppVersion=1.1.7
 AppPublisher=ShiftDNS
 DefaultDirName={autopf}\ShiftDNS
 DefaultGroupName=ShiftDNS

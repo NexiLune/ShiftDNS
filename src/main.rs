@@ -138,6 +138,7 @@ enum TrayIpcMessage {
 struct SaveProfilePayload {
     id: Option<String>,
     name: String,
+    #[serde(default)]
     category: String,
     primary_v4: String,
     secondary_v4: String,
@@ -1241,7 +1242,7 @@ fn main() {
 
     let mut web_context = WebContext::new(Some(config::webview_data_dir()));
     let bg_color = if config.dark_mode {
-        (14, 16, 18, 255)
+        (20, 20, 21, 255)
     } else {
         (255, 255, 255, 255)
     };
@@ -1452,7 +1453,7 @@ fn main() {
                                 );
                                 if key == "darkMode" {
                                     let next_bg = if state.config.dark_mode {
-                                        (14, 16, 18, 255)
+                                        (20, 20, 21, 255)
                                     } else {
                                         (255, 255, 255, 255)
                                     };
