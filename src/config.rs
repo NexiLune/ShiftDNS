@@ -60,6 +60,41 @@ pub fn is_valid_hostname(domain: &str) -> bool {
     })
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ThemeMode {
+    System,
+    Dark,
+    Light,
+}
+
+impl ThemeMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::System => "system",
+            Self::Dark => "dark",
+            Self::Light => "light",
+        }
+    }
+
+    pub fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "system" => Some(Self::System),
+            "dark" => Some(Self::Dark),
+            "light" => Some(Self::Light),
+            _ => None,
+        }
+    }
+
+    pub fn resolve_dark(self, system_dark: bool) -> bool {
+        match self {
+            Self::System => system_dark,
+            Self::Dark => true,
+            Self::Light => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub selected_adapter: Option<String>,
@@ -69,6 +104,8 @@ pub struct AppConfig {
     pub start_minimized: bool,
     pub launch_at_startup: bool,
     pub dark_mode: bool,
+    #[serde(default)]
+    pub theme_mode: Option<ThemeMode>,
     #[serde(default = "default_true")]
     pub sound_effects: bool,
     #[serde(default = "default_resolve_check_domain")]
@@ -76,6 +113,16 @@ pub struct AppConfig {
     #[serde(default)]
     pub usage_counts: HashMap<String, u32>,
     pub profiles: Vec<DnsProfile>,
+}
+
+impl AppConfig {
+    pub fn effective_theme_mode(&self) -> ThemeMode {
+        self.theme_mode.unwrap_or(if self.dark_mode {
+            ThemeMode::Dark
+        } else {
+            ThemeMode::Light
+        })
+    }
 }
 
 impl Default for AppConfig {
@@ -88,6 +135,7 @@ impl Default for AppConfig {
             start_minimized: false,
             launch_at_startup: false,
             dark_mode: true,
+            theme_mode: Some(ThemeMode::System),
             sound_effects: true,
             resolve_check_domain: default_resolve_check_domain(),
             usage_counts: HashMap::new(),

@@ -10,7 +10,7 @@ mod win32;
 use benchmark::{DnsProbeResult, ResolveStatus, UpdateCheckOutcome};
 use config::{
     is_valid_doh_url, is_valid_hostname, normalize_hostname, set_windows_startup,
-    top_used_profiles, AppConfig, DnsProfile,
+    top_used_profiles, AppConfig, DnsProfile, ThemeMode,
 };
 use dns::NetworkAdapter;
 use icon_gen::generate_app_icon_rgba;
@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 use tao::dpi::LogicalSize;
 use tao::event::{Event, StartCause, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy};
-use tao::window::{Icon as WindowIcon, Window, WindowBuilder};
+use tao::window::{Icon as WindowIcon, Theme, Window, WindowBuilder};
 use tray::TrayController;
 use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent};
 use win32::{
@@ -99,6 +99,8 @@ enum IpcMessage {
     CycleAdapter,
     #[serde(rename = "toggleSetting")]
     ToggleSetting { key: String, value: bool },
+    #[serde(rename = "setThemeMode")]
+    SetThemeMode { mode: String },
     #[serde(rename = "setResolveDomain")]
     SetResolveDomain { domain: String },
     #[serde(rename = "checkUpdate")]
@@ -126,8 +128,6 @@ enum TrayIpcMessage {
     Hide,
     #[serde(rename = "resizeTray")]
     Resize { height: f64 },
-    #[serde(rename = "trayShowMain")]
-    ShowMain,
     #[serde(rename = "trayActivate")]
     Activate { id: Option<String> },
     #[serde(rename = "trayQuit")]
@@ -184,6 +184,8 @@ struct UiSyncPayload<'a> {
     profiles: &'a [DnsProfile],
     #[serde(rename = "activeProfileId")]
     active_profile_id: Option<&'a str>,
+    #[serde(rename = "themeMode")]
+    theme_mode: &'static str,
     #[serde(rename = "darkMode")]
     dark_mode: bool,
     #[serde(rename = "soundEffects")]
@@ -222,8 +224,6 @@ struct TraySyncPayload<'a> {
     dark_mode: bool,
     #[serde(rename = "soundEffects")]
     sound_effects: bool,
-    #[serde(rename = "mainVisible")]
-    main_visible: bool,
     #[serde(rename = "activeProfileId")]
     active_profile_id: Option<&'a str>,
     #[serde(rename = "topProfiles")]
@@ -292,6 +292,7 @@ fn eval_js_payload<T: Serialize>(webview: &WebView, fn_name: &str, payload: &T) 
 
 struct AppState {
     config: AppConfig,
+    system_dark: bool,
     adapters: Vec<NetworkAdapter>,
     active_latency: Option<Option<u128>>,
     active_resolve_status: Option<ResolveStatus>,
@@ -323,6 +324,7 @@ struct AppState {
 impl AppState {
     fn new(
         config: AppConfig,
+        system_dark: bool,
         adapters: Vec<NetworkAdapter>,
         tray: Option<TrayController>,
         proxy: EventLoopProxy<UserEvent>,
@@ -333,6 +335,7 @@ impl AppState {
             format_active_dns_status(&config.profiles, config.active_profile_id.as_deref());
         Self {
             config,
+            system_dark,
             adapters,
             active_latency: None,
             active_resolve_status: None,
@@ -360,6 +363,31 @@ impl AppState {
             main_hide_deadline: None,
             pending_hide_to_taskbar: false,
         }
+    }
+
+    fn effective_dark(&self) -> bool {
+        self.config
+            .effective_theme_mode()
+            .resolve_dark(self.system_dark)
+    }
+
+    fn apply_native_theme(
+        &self,
+        window: &Window,
+        webview: &WebView,
+        tray_window: &Window,
+        tray_webview: &WebView,
+    ) {
+        let dark = self.effective_dark();
+        let next_bg = if dark {
+            (20, 20, 21, 255)
+        } else {
+            (255, 255, 255, 255)
+        };
+        let _ = webview.set_background_color(next_bg);
+        let _ = tray_webview.set_background_color(next_bg);
+        configure_window_dwm(window, true, dark);
+        configure_window_dwm(tray_window, true, dark);
     }
 
     fn clear_active_probe_state(&mut self) {
@@ -467,7 +495,7 @@ impl AppState {
         }
     }
 
-    fn tray_logical_height(&self, main_visible: bool) -> f64 {
+    fn tray_logical_height(&self) -> f64 {
         let preset_count = top_used_profiles(
             &self.config.profiles,
             &self.config.usage_counts,
@@ -475,11 +503,10 @@ impl AppState {
             self.config.active_profile_id.as_deref(),
         )
         .len();
-        compute_tray_logical_height(main_visible, preset_count)
-            .clamp(TRAY_MIN_HEIGHT, TRAY_MAX_HEIGHT)
+        compute_tray_logical_height(preset_count).clamp(TRAY_MIN_HEIGHT, TRAY_MAX_HEIGHT)
     }
 
-    fn sync_tray_webview(&self, tray_webview: &WebView, main_visible: bool) {
+    fn sync_tray_webview(&self, tray_webview: &WebView) {
         if !self.tray_webview_ready {
             return;
         }
@@ -490,9 +517,8 @@ impl AppState {
             self.config.active_profile_id.as_deref(),
         );
         let payload = TraySyncPayload {
-            dark_mode: self.config.dark_mode,
+            dark_mode: self.effective_dark(),
             sound_effects: self.config.sound_effects,
-            main_visible,
             active_profile_id: self.config.active_profile_id.as_deref(),
             top_profiles,
         };
@@ -507,7 +533,8 @@ impl AppState {
             app_version: APP_VERSION,
             profiles: &self.config.profiles,
             active_profile_id: self.config.active_profile_id.as_deref(),
-            dark_mode: self.config.dark_mode,
+            theme_mode: self.config.effective_theme_mode().as_str(),
+            dark_mode: self.effective_dark(),
             sound_effects: self.config.sound_effects,
             enable_ipv6: self.config.enable_ipv6,
             enable_doh: self.config.enable_doh,
@@ -526,9 +553,9 @@ impl AppState {
         eval_js_payload(webview, "__shiftdnsSync", &payload);
     }
 
-    fn sync_all_ui(&self, webview: &WebView, tray_webview: &WebView, main_visible: bool) {
+    fn sync_all_ui(&self, webview: &WebView, tray_webview: &WebView) {
         self.sync_webview(webview);
-        self.sync_tray_webview(tray_webview, main_visible);
+        self.sync_tray_webview(tray_webview);
     }
 
     fn spawn_active_probe(&mut self, manual: bool) {
@@ -603,7 +630,7 @@ impl AppState {
         });
     }
 
-    fn cycle_adapter(&mut self, webview: &WebView, tray_webview: &WebView, main_visible: bool) {
+    fn cycle_adapter(&mut self, webview: &WebView, tray_webview: &WebView) {
         if self.op_in_flight {
             return;
         }
@@ -654,7 +681,7 @@ impl AppState {
         {
             self.spawn_active_probe(false);
         }
-        self.sync_all_ui(webview, tray_webview, main_visible);
+        self.sync_all_ui(webview, tray_webview);
         self.last_refresh_at = None;
         self.spawn_refresh_adapters(true);
     }
@@ -666,7 +693,6 @@ impl AppState {
         status_message: String,
         webview: &WebView,
         tray_webview: &WebView,
-        main_visible: bool,
     ) -> u64 {
         self.op_generation = self.op_generation.saturating_add(1);
         let gen = self.op_generation;
@@ -682,7 +708,7 @@ impl AppState {
         self.status_message = status_message;
         self.status_is_error = false;
         self.sync_tray_icon();
-        self.sync_all_ui(webview, tray_webview, main_visible);
+        self.sync_all_ui(webview, tray_webview);
         gen
     }
 
@@ -691,7 +717,6 @@ impl AppState {
         profile_id: &str,
         webview: &WebView,
         tray_webview: &WebView,
-        main_visible: bool,
     ) {
         let Some(profile) = self.config.profiles.iter().find(|p| p.id == profile_id).cloned() else {
             return;
@@ -705,7 +730,6 @@ impl AppState {
             status,
             webview,
             tray_webview,
-            main_visible,
         );
 
         let cached_adapters = self.adapters.clone();
@@ -764,7 +788,7 @@ impl AppState {
         });
     }
 
-    fn activate_dhcp(&mut self, webview: &WebView, tray_webview: &WebView, main_visible: bool) {
+    fn activate_dhcp(&mut self, webview: &WebView, tray_webview: &WebView) {
         let previous_active_id = self.config.active_profile_id.clone();
         let gen = self.begin_dns_op(
             None,
@@ -772,7 +796,6 @@ impl AppState {
             "System Default (DHCP)".to_string(),
             webview,
             tray_webview,
-            main_visible,
         );
 
         let cached_adapters = self.adapters.clone();
@@ -823,7 +846,6 @@ impl AppState {
         payload: SaveProfilePayload,
         webview: &WebView,
         tray_webview: &WebView,
-        main_visible: bool,
     ) {
         let validated = match validate_profile_payload(&payload) {
             Ok(v) => v,
@@ -848,12 +870,12 @@ impl AppState {
             }
             self.save_config();
             if updated && self.config.active_profile_id.as_deref() == Some(editing_id.as_str()) {
-                self.activate_profile(&editing_id, webview, tray_webview, main_visible);
+                self.activate_profile(&editing_id, webview, tray_webview);
                 return;
             }
             self.sync_tray_icon();
             self.set_transient_status(format!("Updated {}", validated.name));
-            self.sync_all_ui(webview, tray_webview, main_visible);
+            self.sync_all_ui(webview, tray_webview);
             return;
         }
 
@@ -893,16 +915,10 @@ impl AppState {
         self.save_config();
         self.sync_tray_icon();
         self.set_transient_status(format!("Added {}", validated.name));
-        self.sync_all_ui(webview, tray_webview, main_visible);
+        self.sync_all_ui(webview, tray_webview);
     }
 
-    fn delete_profile(
-        &mut self,
-        id: &str,
-        webview: &WebView,
-        tray_webview: &WebView,
-        main_visible: bool,
-    ) {
+    fn delete_profile(&mut self, id: &str, webview: &WebView, tray_webview: &WebView) {
         let removed_name = self
             .config
             .profiles
@@ -913,7 +929,7 @@ impl AppState {
         self.config.profiles.retain(|p| p.id != id);
         if was_active {
             self.save_config();
-            self.activate_dhcp(webview, tray_webview, main_visible);
+            self.activate_dhcp(webview, tray_webview);
             return;
         }
         self.save_config();
@@ -923,7 +939,7 @@ impl AppState {
                 .map(|n| format!("Removed {n}"))
                 .unwrap_or_else(|| "Removed DNS profile".to_string()),
         );
-        self.sync_all_ui(webview, tray_webview, main_visible);
+        self.sync_all_ui(webview, tray_webview);
     }
 
     fn reorder_profiles(
@@ -931,7 +947,6 @@ impl AppState {
         ordered_ids: Vec<String>,
         webview: &WebView,
         tray_webview: &WebView,
-        main_visible: bool,
     ) {
         let mut by_id: HashMap<String, DnsProfile> = self
             .config
@@ -952,10 +967,10 @@ impl AppState {
         self.save_config();
         self.sync_tray_icon();
         self.set_transient_status("Updated order");
-        self.sync_all_ui(webview, tray_webview, main_visible);
+        self.sync_all_ui(webview, tray_webview);
     }
 
-    fn reset_defaults(&mut self, webview: &WebView, tray_webview: &WebView, main_visible: bool) {
+    fn reset_defaults(&mut self, webview: &WebView, tray_webview: &WebView) {
         let custom_only: Vec<DnsProfile> = self
             .config
             .profiles
@@ -973,13 +988,28 @@ impl AppState {
             .is_some_and(|active_id| !self.config.profiles.iter().any(|p| &p.id == active_id));
         if dropped_active {
             self.save_config();
-            self.activate_dhcp(webview, tray_webview, main_visible);
+            self.activate_dhcp(webview, tray_webview);
             return;
         }
         self.save_config();
         self.sync_tray_icon();
         self.set_transient_status("Restored default DNS list");
-        self.sync_all_ui(webview, tray_webview, main_visible);
+        self.sync_all_ui(webview, tray_webview);
+    }
+
+    fn set_theme_mode(
+        &mut self,
+        mode: ThemeMode,
+        window: &Window,
+        webview: &WebView,
+        tray_window: &Window,
+        tray_webview: &WebView,
+    ) {
+        self.config.theme_mode = Some(mode);
+        self.config.dark_mode = mode.resolve_dark(self.system_dark);
+        self.save_config();
+        self.apply_native_theme(window, webview, tray_window, tray_webview);
+        self.sync_all_ui(webview, tray_webview);
     }
 
     fn toggle_setting(
@@ -988,11 +1018,15 @@ impl AppState {
         value: bool,
         webview: &WebView,
         tray_webview: &WebView,
-        main_visible: bool,
     ) {
         match key {
             "darkMode" => {
                 self.config.dark_mode = value;
+                self.config.theme_mode = Some(if value {
+                    ThemeMode::Dark
+                } else {
+                    ThemeMode::Light
+                });
                 self.save_config();
             }
             "soundEffects" => {
@@ -1048,14 +1082,14 @@ impl AppState {
             }
             _ => {}
         }
-        self.sync_all_ui(webview, tray_webview, main_visible);
+        self.sync_all_ui(webview, tray_webview);
     }
 
     fn show_window(&mut self, window: &Window, webview: &WebView, tray_webview: &WebView) {
         self.main_target_visible = true;
         self.main_hide_deadline = None;
         self.pending_hide_to_taskbar = false;
-        configure_window_dwm(window, true, self.config.dark_mode);
+        configure_window_dwm(window, true, self.effective_dark());
         if self.webview_ready {
             let _ = webview
                 .evaluate_script("window.__shiftdnsPrepareShow && window.__shiftdnsPrepareShow();");
@@ -1072,7 +1106,7 @@ impl AppState {
                 .evaluate_script("window.__shiftdnsAnimateShow && window.__shiftdnsAnimateShow();");
         }
         self.spawn_refresh_adapters(true);
-        self.sync_all_ui(webview, tray_webview, true);
+        self.sync_all_ui(webview, tray_webview);
     }
 
     fn request_hide_window(&mut self, window: &Window, webview: &WebView, tray_webview: &WebView) {
@@ -1094,7 +1128,7 @@ impl AppState {
             return;
         }
         window.set_visible(false);
-        self.sync_tray_webview(tray_webview, false);
+        self.sync_tray_webview(tray_webview);
     }
 
     fn finalize_minimize_window(&mut self, window: &Window, tray_webview: &WebView) {
@@ -1104,25 +1138,23 @@ impl AppState {
             return;
         }
         minimize_window_cleanly(window);
-        self.sync_tray_webview(tray_webview, false);
+        self.sync_tray_webview(tray_webview);
     }
 
     fn open_tray_popup(
         &mut self,
-        window: &Window,
         tray_window: &Window,
         tray_webview: &WebView,
         click_x: i32,
         click_y: i32,
     ) {
-        let main_visible = is_main_effectively_visible(window);
-        let exact_h = self.tray_logical_height(main_visible);
+        let exact_h = self.tray_logical_height();
         self.last_tray_logical_height = exact_h;
-        self.sync_tray_webview(tray_webview, main_visible);
+        self.sync_tray_webview(tray_webview);
         let (ax, ay) = resolve_tray_anchor(click_x, click_y);
         self.last_tray_anchor = Some((ax, ay));
         position_tray_window(tray_window, ax, ay, exact_h);
-        configure_window_dwm(tray_window, true, self.config.dark_mode);
+        configure_window_dwm(tray_window, true, self.effective_dark());
         ensure_tray_topmost(tray_window);
         self.tray_opened_at = Some(Instant::now());
         self.tray_blur_closed_at = None;
@@ -1207,7 +1239,9 @@ fn main() {
         .build(&event_loop)
         .expect("Failed to create ShiftDNS window");
     let main_window_id = window.id();
-    configure_window_dwm(&window, true, config.dark_mode);
+    let initial_system_dark = matches!(window.theme(), Theme::Dark);
+    let initial_dark = config.effective_theme_mode().resolve_dark(initial_system_dark);
+    configure_window_dwm(&window, true, initial_dark);
 
     let initial_tray_presets = top_used_profiles(
         &config.profiles,
@@ -1216,7 +1250,7 @@ fn main() {
         config.active_profile_id.as_deref(),
     )
     .len();
-    let initial_tray_height = compute_tray_logical_height(!hide_on_boot, initial_tray_presets);
+    let initial_tray_height = compute_tray_logical_height(initial_tray_presets);
 
     let mut tray_builder = WindowBuilder::new()
         .with_title(TRAY_WINDOW_TITLE)
@@ -1237,11 +1271,11 @@ fn main() {
         .build(&event_loop)
         .expect("Failed to create ShiftDNS tray popup window");
     let tray_window_id = tray_window.id();
-    configure_window_dwm(&tray_window, true, config.dark_mode);
+    configure_window_dwm(&tray_window, true, initial_dark);
     ensure_tray_topmost(&tray_window);
 
     let mut web_context = WebContext::new(Some(config::webview_data_dir()));
-    let bg_color = if config.dark_mode {
+    let bg_color = if initial_dark {
         (20, 20, 21, 255)
     } else {
         (255, 255, 255, 255)
@@ -1279,6 +1313,7 @@ fn main() {
 
     let mut state = AppState::new(
         config,
+        initial_system_dark,
         adapters,
         tray,
         proxy,
@@ -1320,16 +1355,29 @@ fn main() {
                         WindowEvent::CloseRequested => {
                             state.request_hide_window(&window, &webview, &tray_webview);
                         }
+                        WindowEvent::ThemeChanged(theme) => {
+                            let next_system_dark = matches!(theme, Theme::Dark);
+                            if next_system_dark != state.system_dark {
+                                state.system_dark = next_system_dark;
+                                if state.config.effective_theme_mode() == ThemeMode::System {
+                                    state.config.dark_mode = next_system_dark;
+                                    state.apply_native_theme(
+                                        &window,
+                                        &webview,
+                                        &tray_window,
+                                        &tray_webview,
+                                    );
+                                    state.sync_all_ui(&webview, &tray_webview);
+                                }
+                            }
+                        }
                         WindowEvent::Focused(true) => {
                             if window.is_visible() && !window.is_minimized() {
                                 if !state.main_target_visible && state.main_hide_deadline.is_none() {
                                     state.show_window(&window, &webview, &tray_webview);
                                 } else if state.main_target_visible {
                                     state.spawn_refresh_adapters(true);
-                                    state.sync_tray_webview(
-                                        &tray_webview,
-                                        is_main_effectively_visible(&window),
-                                    );
+                                    state.sync_tray_webview(&tray_webview);
                                 }
                             }
                         }
@@ -1384,7 +1432,6 @@ fn main() {
                                 state.close_tray_popup(&tray_window, &tray_webview, false);
                             } else {
                                 state.open_tray_popup(
-                                    &window,
                                     &tray_window,
                                     &tray_webview,
                                     position.x.round() as i32,
@@ -1398,7 +1445,6 @@ fn main() {
                     _ => {}
                 },
                 UserEvent::Ipc(raw) => {
-                    let main_visible = is_main_effectively_visible(&window);
                     if let Ok(msg) = serde_json::from_str::<IpcMessage>(&raw) {
                         match msg {
                             IpcMessage::Ready => {
@@ -1411,56 +1457,50 @@ fn main() {
                                 state.sync_webview(&webview);
                             }
                             IpcMessage::ActivateProfile { id } => match id {
-                                Some(profile_id) => state.activate_profile(
-                                    &profile_id,
-                                    &webview,
-                                    &tray_webview,
-                                    main_visible,
-                                ),
-                                None => state.activate_dhcp(&webview, &tray_webview, main_visible),
+                                Some(profile_id) => {
+                                    state.activate_profile(&profile_id, &webview, &tray_webview)
+                                }
+                                None => state.activate_dhcp(&webview, &tray_webview),
                             },
                             IpcMessage::SaveProfile { profile } => {
-                                state.save_profile(profile, &webview, &tray_webview, main_visible);
+                                state.save_profile(profile, &webview, &tray_webview);
                             }
                             IpcMessage::DeleteProfile { id } => {
-                                state.delete_profile(&id, &webview, &tray_webview, main_visible);
+                                state.delete_profile(&id, &webview, &tray_webview);
                             }
                             IpcMessage::ReorderProfiles { ordered_ids } => {
-                                state.reorder_profiles(
-                                    ordered_ids,
-                                    &webview,
-                                    &tray_webview,
-                                    main_visible,
-                                );
+                                state.reorder_profiles(ordered_ids, &webview, &tray_webview);
                             }
                             IpcMessage::ResetDefaults => {
-                                state.reset_defaults(&webview, &tray_webview, main_visible);
+                                state.reset_defaults(&webview, &tray_webview);
                             }
                             IpcMessage::ProbeActive => {
                                 state.spawn_active_probe(true);
                                 state.sync_webview(&webview);
                             }
                             IpcMessage::CycleAdapter => {
-                                state.cycle_adapter(&webview, &tray_webview, main_visible);
+                                state.cycle_adapter(&webview, &tray_webview);
+                            }
+                            IpcMessage::SetThemeMode { mode } => {
+                                if let Some(parsed) = ThemeMode::from_str(&mode) {
+                                    state.set_theme_mode(
+                                        parsed,
+                                        &window,
+                                        &webview,
+                                        &tray_window,
+                                        &tray_webview,
+                                    );
+                                }
                             }
                             IpcMessage::ToggleSetting { key, value } => {
-                                state.toggle_setting(
-                                    &key,
-                                    value,
-                                    &webview,
-                                    &tray_webview,
-                                    main_visible,
-                                );
+                                state.toggle_setting(&key, value, &webview, &tray_webview);
                                 if key == "darkMode" {
-                                    let next_bg = if state.config.dark_mode {
-                                        (20, 20, 21, 255)
-                                    } else {
-                                        (255, 255, 255, 255)
-                                    };
-                                    let _ = webview.set_background_color(next_bg);
-                                    let _ = tray_webview.set_background_color(next_bg);
-                                    configure_window_dwm(&window, true, state.config.dark_mode);
-                                    configure_window_dwm(&tray_window, true, state.config.dark_mode);
+                                    state.apply_native_theme(
+                                        &window,
+                                        &webview,
+                                        &tray_window,
+                                        &tray_webview,
+                                    );
                                 }
                             }
                             IpcMessage::SetResolveDomain { domain } => {
@@ -1512,12 +1552,11 @@ fn main() {
                         match msg {
                             TrayIpcMessage::Ready => {
                                 state.tray_webview_ready = true;
-                                let main_visible = is_main_effectively_visible(&window);
-                                let exact_h = state.tray_logical_height(main_visible);
+                                let exact_h = state.tray_logical_height();
                                 state.last_tray_logical_height = exact_h;
                                 tray_window
                                     .set_inner_size(LogicalSize::new(TRAY_POPUP_WIDTH, exact_h));
-                                state.sync_tray_webview(&tray_webview, main_visible);
+                                state.sync_tray_webview(&tray_webview);
                             }
                             TrayIpcMessage::Hide => {
                                 state.close_tray_popup(&tray_window, &tray_webview, false);
@@ -1536,23 +1575,13 @@ fn main() {
                                     }
                                 }
                             }
-                            TrayIpcMessage::ShowMain => {
-                                state.close_tray_popup(&tray_window, &tray_webview, false);
-                                state.show_window(&window, &webview, &tray_webview);
-                            }
                             TrayIpcMessage::Activate { id } => {
                                 state.close_tray_popup(&tray_window, &tray_webview, false);
-                                let main_visible = is_main_effectively_visible(&window);
                                 match id {
-                                    Some(profile_id) => state.activate_profile(
-                                        &profile_id,
-                                        &webview,
-                                        &tray_webview,
-                                        main_visible,
-                                    ),
-                                    None => {
-                                        state.activate_dhcp(&webview, &tray_webview, main_visible)
+                                    Some(profile_id) => {
+                                        state.activate_profile(&profile_id, &webview, &tray_webview)
                                     }
+                                    None => state.activate_dhcp(&webview, &tray_webview),
                                 }
                             }
                             TrayIpcMessage::Quit => {
@@ -1594,11 +1623,7 @@ fn main() {
                         {
                             state.spawn_active_probe(false);
                         }
-                        state.sync_all_ui(
-                            &webview,
-                            &tray_webview,
-                            is_main_effectively_visible(&window),
-                        );
+                        state.sync_all_ui(&webview, &tray_webview);
                     }
                 }
                 UserEvent::DnsApplyFinished {
@@ -1645,11 +1670,7 @@ fn main() {
                                 state.set_error_status(err);
                             }
                         }
-                        state.sync_all_ui(
-                            &webview,
-                            &tray_webview,
-                            is_main_effectively_visible(&window),
-                        );
+                        state.sync_all_ui(&webview, &tray_webview);
                     }
                 }
                 UserEvent::StartupTaskFinished { enable, result } => {
@@ -1670,11 +1691,7 @@ fn main() {
                             state.set_error_status(err);
                         }
                     }
-                    state.sync_all_ui(
-                        &webview,
-                        &tray_webview,
-                        is_main_effectively_visible(&window),
-                    );
+                    state.sync_all_ui(&webview, &tray_webview);
                 }
                 UserEvent::ProbeResult {
                     gen,

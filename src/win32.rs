@@ -41,12 +41,12 @@ pub const TRAY_EDGE_GAP_PX: f64 = 8.0;
 pub const TRAY_MIN_HEIGHT: f64 = 85.0;
 pub const TRAY_MAX_HEIGHT: f64 = 340.0;
 
-pub fn compute_tray_logical_height(main_visible: bool, preset_count: usize) -> f64 {
+pub fn compute_tray_logical_height(preset_count: usize) -> f64 {
     // Matches tray.html layout metrics:
     // .tray-menu: 2px border + 10px vertical padding, 2px flex row gap
     // .menu-item: 30px height; .divider: 9px (1px border + 8px vertical margin)
-    let menu_items = if main_visible { 0 } else { 1 } + 1 + preset_count + 1;
-    let dividers = if main_visible { 1 } else { 2 };
+    let menu_items = 1 + preset_count + 1;
+    let dividers = 1;
     let child_count = menu_items + dividers;
     let gaps = child_count.saturating_sub(1);
     (12 + menu_items * 30 + dividers * 9 + gaps * 2) as f64

@@ -120,8 +120,6 @@
     transition: none !important;
   }
 
-  .menu-item.strong { font-weight: 500; }
-
   .item-slot {
     width: 20px;
     height: 16px;
@@ -198,7 +196,6 @@
   const state = {
     darkMode: true,
     soundEffects: true,
-    mainVisible: true,
     activeProfileId: null,
     topProfiles: [],
   };
@@ -283,17 +280,6 @@
     const root = document.getElementById('tray-menu');
 
     let html = '';
-    if (!state.mainVisible) {
-      html += `
-        <button type="button" class="menu-item strong" role="menuitem" data-action="showMain">
-          <span class="item-slot" aria-hidden="true"></span>
-          <span class="item-label-wrap">
-            <span class="item-name">Open ShiftDNS</span>
-          </span>
-        </button>
-        <div class="divider"></div>
-      `;
-    }
 
     const dhcpActive = state.activeProfileId === null;
     html += `
@@ -336,10 +322,7 @@
       btn.onclick = () => {
         const action = btn.dataset.action;
         clearTrayHoverState();
-        if (action === 'showMain') {
-          playSound('click');
-          postIpc({ type: 'trayShowMain' });
-        } else if (action === 'activate') {
+        if (action === 'activate') {
           const id = btn.dataset.id || null;
           playSound(id ? 'activate' : 'dhcp');
           postIpc({ type: 'trayActivate', id });
