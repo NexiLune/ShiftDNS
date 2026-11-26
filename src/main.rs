@@ -111,8 +111,8 @@ enum IpcMessage {
     BeginHide,
     #[serde(rename = "hideWindow")]
     HideWindow,
-    #[serde(rename = "quitApp")]
-    QuitApp,
+    #[serde(rename = "minimizeWindow")]
+    MinimizeWindow,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1292,10 +1292,7 @@ fn main() {
                 if window_id == main_window_id {
                     match event {
                         WindowEvent::CloseRequested => {
-                            state.close_tray_popup(&tray_window, &tray_webview, false);
-                            state.tray = None;
-                            *control_flow = ControlFlow::Exit;
-                            return;
+                            state.request_hide_window(&window, &webview, &tray_webview);
                         }
                         WindowEvent::Focused(true) => {
                             if window.is_visible() {
@@ -1303,6 +1300,10 @@ fn main() {
                                     state.show_window(&window, &webview, &tray_webview);
                                 } else if state.main_target_visible {
                                     state.spawn_refresh_adapters(true);
+                                    state.sync_tray_webview(
+                                        &tray_webview,
+                                        is_main_effectively_visible(&window),
+                                    );
                                 }
                             }
                         }
@@ -1446,11 +1447,10 @@ fn main() {
                                 state.main_target_visible = false;
                                 state.finalize_hide_window(&window, &tray_webview);
                             }
-                            IpcMessage::QuitApp => {
-                                state.close_tray_popup(&tray_window, &tray_webview, false);
-                                state.tray = None;
-                                *control_flow = ControlFlow::Exit;
-                                return;
+                            IpcMessage::MinimizeWindow => {
+                                state.main_hide_deadline = None;
+                                window.set_minimized(true);
+                                state.sync_tray_webview(&tray_webview, false);
                             }
                         }
                     }
