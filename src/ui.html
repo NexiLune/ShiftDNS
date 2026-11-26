@@ -318,13 +318,13 @@
     transform: scale(0.8);
   }
 
-  /* Dynamic Scroll Containers (fits content up to DHCP + 3 DNS rows = 204px, scrolls from 4th row) */
+  /* Smooth Scroll Containers (204px body = DHCP + 3 DNS rows, scrolls smoothly from 4th row) */
   .dns-list,
   .settings-scroll,
   .form-scroll {
-    flex: 0 1 auto;
+    flex: 1;
     min-height: 0;
-    max-height: 204px;
+    height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: contain;
@@ -1489,7 +1489,13 @@
     btn.addEventListener('blur', hide);
   }
 
+  let lastHeaderKey = null;
+
   function renderHeader() {
+    const headerKey = `${viewMode}:${editingProfile ? editingProfile.id || 'edit' : ''}`;
+    if (headerKey === lastHeaderKey) return;
+    lastHeaderKey = headerKey;
+
     const left = document.getElementById('title-left');
     const controls = document.getElementById('title-controls');
     activeTooltipHiders.clear();
@@ -1643,23 +1649,6 @@
     el.classList.toggle('fade-bottom', showBottom);
   }
 
-  const WINDOW_CHROME_HEIGHT = 82; // 44px titlebar + 36px footer + 2px outer border
-  const WINDOW_MAX_BODY_HEIGHT = 204; // DHCP (51px) + 3 DNS rows (51+51+50 = 203px)
-  const WINDOW_MIN_HEIGHT = 160;
-  const WINDOW_MAX_HEIGHT = WINDOW_CHROME_HEIGHT + WINDOW_MAX_BODY_HEIGHT; // 286px
-  let lastReportedWindowHeight = null;
-
-  function reportWindowHeight(el) {
-    if (!el) return;
-    const contentH = Math.ceil(el.scrollHeight);
-    const bodyH = Math.min(contentH, WINDOW_MAX_BODY_HEIGHT);
-    const totalH = Math.max(WINDOW_MIN_HEIGHT, Math.min(WINDOW_MAX_HEIGHT, WINDOW_CHROME_HEIGHT + bodyH));
-    if (totalH !== lastReportedWindowHeight) {
-      lastReportedWindowHeight = totalH;
-      postIpc({ type: 'resizeWindow', height: totalH });
-    }
-  }
-
   function applyOptimisticActivation(targetId) {
     const selected = targetId ? appState.profiles.find((p) => p.id === targetId) || null : null;
     appState.activeProfileId = targetId;
@@ -1675,6 +1664,25 @@
     postIpc({ type: 'activateProfile', id: targetId });
   }
 
+  function updateActivePingInPlace() {
+    const activeId = appState.activeProfileId;
+    if (!activeId) return false;
+    const pingBtn = document.querySelector(`.dns-row[data-profile-id="${CSS.escape(activeId)}"] .ping-btn`);
+    if (!pingBtn) return false;
+    const lat = latencyInfo(
+      appState.activeLatency,
+      appState.probingActive,
+      appState.activeResolveStatus,
+      appState.activeResolvedIp,
+      appState.resolveCheckDomain
+    );
+    pingBtn.className = `ping-btn ${lat.cls}`;
+    pingBtn.textContent = lat.text;
+    pingBtn.title = lat.title;
+    pingBtn.setAttribute('aria-label', lat.title);
+    return true;
+  }
+
   let activeScrollObserver = null;
   function attachScrollFade(el) {
     if (activeScrollObserver) {
@@ -1682,11 +1690,8 @@
       activeScrollObserver = null;
     }
     if (!el) return;
-    const sync = () => {
-      updateScrollFade(el);
-      reportWindowHeight(el);
-    };
-    el.addEventListener('scroll', () => updateScrollFade(el), { passive: true });
+    const sync = () => updateScrollFade(el);
+    el.addEventListener('scroll', sync, { passive: true });
     if (typeof ResizeObserver === 'function') {
       activeScrollObserver = new ResizeObserver(sync);
       activeScrollObserver.observe(el);
@@ -2355,7 +2360,6 @@
       btn.innerHTML = `${showAdvanced ? ICONS.minus : ICONS.plus}<span>IPv6 / DoH</span>`;
       const scrollEl = wrap.querySelector('.form-scroll');
       updateScrollFade(scrollEl);
-      reportWindowHeight(scrollEl);
     };
 
     formEl.onsubmit = (ev) => {
@@ -2495,7 +2499,15 @@
       pendingSyncPayload = next;
       return;
     }
+    const prevProfilesJson = JSON.stringify(appState.profiles);
+    const prevActiveId = appState.activeProfileId;
+    const prevLatency = appState.activeLatency;
+    const prevResolveStatus = appState.activeResolveStatus;
+    const prevResolvedIp = appState.activeResolvedIp;
+    const prevProbing = appState.probingActive;
+    const prevDomain = appState.resolveCheckDomain;
     const becameError = Boolean(next.statusIsError) && !appState.statusIsError;
+
     if (!('activeLatency' in next)) {
       appState.activeLatency = undefined;
     }
@@ -2503,8 +2515,25 @@
     if (becameError) {
       playSound('error');
     }
+
     if (viewMode === 'servers') {
-      renderAll(false);
+      const profilesChanged = JSON.stringify(appState.profiles) !== prevProfilesJson;
+      const activeChanged = appState.activeProfileId !== prevActiveId;
+      const probeChanged =
+        appState.activeLatency !== prevLatency ||
+        appState.activeResolveStatus !== prevResolveStatus ||
+        appState.activeResolvedIp !== prevResolvedIp ||
+        appState.probingActive !== prevProbing ||
+        appState.resolveCheckDomain !== prevDomain;
+
+      applyTheme();
+      renderHeader();
+      if (profilesChanged || activeChanged || !document.getElementById('dns-list')) {
+        renderBody(false);
+      } else if (probeChanged && !updateActivePingInPlace()) {
+        renderBody(false);
+      }
+      renderFooter();
     } else {
       applyTheme();
       renderFooter();

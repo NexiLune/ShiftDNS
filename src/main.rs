@@ -27,10 +27,10 @@ use tao::window::{Icon as WindowIcon, Window, WindowBuilder};
 use tray::TrayController;
 use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent};
 use win32::{
-    acquire_single_instance, compute_main_logical_height, compute_tray_logical_height,
-    configure_window_dwm, ensure_tray_topmost, focus_window, open_release_url,
-    position_tray_window, resize_main_window, resolve_tray_anchor, MAIN_MAX_HEIGHT,
-    MAIN_MIN_HEIGHT, MAIN_WINDOW_WIDTH, TRAY_MAX_HEIGHT, TRAY_MIN_HEIGHT, TRAY_POPUP_WIDTH,
+    acquire_single_instance, compute_tray_logical_height, configure_window_dwm,
+    ensure_tray_topmost, focus_window, open_release_url, position_tray_window,
+    resolve_tray_anchor, MAIN_WINDOW_HEIGHT, MAIN_WINDOW_WIDTH, TRAY_MAX_HEIGHT, TRAY_MIN_HEIGHT,
+    TRAY_POPUP_WIDTH,
 };
 use wry::{WebContext, WebView, WebViewBuilder};
 
@@ -105,8 +105,6 @@ enum IpcMessage {
     CheckUpdate,
     #[serde(rename = "openReleaseUrl")]
     OpenReleaseUrl { url: String },
-    #[serde(rename = "resizeWindow")]
-    ResizeWindow { height: f64 },
     #[serde(rename = "dragWindow")]
     DragWindow,
     #[serde(rename = "beginHide")]
@@ -308,7 +306,6 @@ struct AppState {
     proxy: EventLoopProxy<UserEvent>,
     webview_ready: bool,
     tray_webview_ready: bool,
-    last_main_logical_height: f64,
     last_tray_anchor: Option<(i32, i32)>,
     last_tray_logical_height: f64,
     tray_opened_at: Option<Instant>,
@@ -324,7 +321,6 @@ impl AppState {
         tray: Option<TrayController>,
         proxy: EventLoopProxy<UserEvent>,
         main_target_visible: bool,
-        initial_main_height: f64,
         initial_tray_height: f64,
     ) -> Self {
         let status_message =
@@ -350,7 +346,6 @@ impl AppState {
             proxy,
             webview_ready: false,
             tray_webview_ready: false,
-            last_main_logical_height: initial_main_height,
             last_tray_anchor: None,
             last_tray_logical_height: initial_tray_height,
             tray_opened_at: None,
@@ -1170,11 +1165,10 @@ fn main() {
     }));
 
     let window_icon = WindowIcon::from_rgba(generate_app_icon_rgba(32), 32, 32).ok();
-    let initial_main_height = compute_main_logical_height(config.profiles.len());
 
     let mut main_builder = WindowBuilder::new()
         .with_title(WINDOW_TITLE)
-        .with_inner_size(LogicalSize::new(MAIN_WINDOW_WIDTH, initial_main_height))
+        .with_inner_size(LogicalSize::new(MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT))
         .with_decorations(false)
         .with_resizable(false)
         .with_visible(!hide_on_boot)
@@ -1265,7 +1259,6 @@ fn main() {
         tray,
         proxy,
         !hide_on_boot,
-        initial_main_height,
         initial_tray_height,
     );
     state.spawn_refresh_adapters(!hide_on_boot);
@@ -1433,13 +1426,6 @@ fn main() {
                                     Err(err) => state.set_error_status(err),
                                 }
                                 state.sync_webview(&webview);
-                            }
-                            IpcMessage::ResizeWindow { height } => {
-                                let clamped = height.round().clamp(MAIN_MIN_HEIGHT, MAIN_MAX_HEIGHT);
-                                if (clamped - state.last_main_logical_height).abs() >= 1.0 {
-                                    state.last_main_logical_height =
-                                        resize_main_window(&window, clamped);
-                                }
                             }
                             IpcMessage::DragWindow => {
                                 let _ = window.drag_window();
