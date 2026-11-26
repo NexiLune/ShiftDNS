@@ -27,10 +27,34 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_RESTORE, SW_SHOW, SW_SHOWNORMAL,
 };
 
+pub const MAIN_WINDOW_WIDTH: f64 = 420.0;
+pub const MAIN_CHROME_HEIGHT: f64 = 82.0; // 44px titlebar + 36px footer + 2px outer border
+pub const MAIN_ROW_HEIGHT: f64 = 51.0;
+pub const MAIN_MAX_BODY_HEIGHT: f64 = 204.0; // DHCP + 3 DNS rows (scrolls from 4th server)
+pub const MAIN_MIN_HEIGHT: f64 = 160.0;
+pub const MAIN_MAX_HEIGHT: f64 = MAIN_CHROME_HEIGHT + MAIN_MAX_BODY_HEIGHT; // 286px
+
 pub const TRAY_POPUP_WIDTH: f64 = 256.0;
 pub const TRAY_EDGE_GAP_PX: f64 = 8.0;
 pub const TRAY_MIN_HEIGHT: f64 = 85.0;
 pub const TRAY_MAX_HEIGHT: f64 = 340.0;
+
+pub fn compute_main_logical_height(profile_count: usize) -> f64 {
+    let body = if profile_count == 0 {
+        // DHCP row (51px) + compact empty state (~108px)
+        159.0
+    } else {
+        // DHCP row + N DNS rows (last row omits 1px bottom border)
+        ((1 + profile_count) as f64 * MAIN_ROW_HEIGHT - 1.0).min(MAIN_MAX_BODY_HEIGHT)
+    };
+    (MAIN_CHROME_HEIGHT + body).clamp(MAIN_MIN_HEIGHT, MAIN_MAX_HEIGHT)
+}
+
+pub fn resize_main_window(window: &Window, logical_h: f64) -> f64 {
+    let clamped = logical_h.round().clamp(MAIN_MIN_HEIGHT, MAIN_MAX_HEIGHT);
+    window.set_inner_size(LogicalSize::new(MAIN_WINDOW_WIDTH, clamped));
+    clamped
+}
 
 pub fn compute_tray_logical_height(main_visible: bool, preset_count: usize) -> f64 {
     // Matches tray.html layout metrics:

@@ -27,9 +27,10 @@ use tao::window::{Icon as WindowIcon, Window, WindowBuilder};
 use tray::TrayController;
 use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent};
 use win32::{
-    acquire_single_instance, compute_tray_logical_height, configure_window_dwm,
-    ensure_tray_topmost, focus_window, open_release_url, position_tray_window, resolve_tray_anchor,
-    TRAY_MAX_HEIGHT, TRAY_MIN_HEIGHT, TRAY_POPUP_WIDTH,
+    acquire_single_instance, compute_main_logical_height, compute_tray_logical_height,
+    configure_window_dwm, ensure_tray_topmost, focus_window, open_release_url,
+    position_tray_window, resize_main_window, resolve_tray_anchor, MAIN_MAX_HEIGHT,
+    MAIN_MIN_HEIGHT, MAIN_WINDOW_WIDTH, TRAY_MAX_HEIGHT, TRAY_MIN_HEIGHT, TRAY_POPUP_WIDTH,
 };
 use wry::{WebContext, WebView, WebViewBuilder};
 
@@ -42,8 +43,6 @@ static LATEST_OP_GEN: AtomicU64 = AtomicU64::new(0);
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 const WINDOW_TITLE: &str = "ShiftDNS";
 const TRAY_WINDOW_TITLE: &str = "ShiftDNS Tray";
-const WINDOW_WIDTH: f64 = 420.0;
-const WINDOW_HEIGHT: f64 = 498.0;
 
 enum UserEvent {
     TrayIcon(TrayIconEvent),
@@ -57,8 +56,8 @@ enum UserEvent {
     },
     DnsApplyFinished {
         gen: u64,
+        previous_active_id: Option<String>,
         target_profile_id: Option<String>,
-        profile_name: Option<String>,
         adapters: Vec<NetworkAdapter>,
         result: Result<(), String>,
     },
@@ -106,6 +105,8 @@ enum IpcMessage {
     CheckUpdate,
     #[serde(rename = "openReleaseUrl")]
     OpenReleaseUrl { url: String },
+    #[serde(rename = "resizeWindow")]
+    ResizeWindow { height: f64 },
     #[serde(rename = "dragWindow")]
     DragWindow,
     #[serde(rename = "beginHide")]
@@ -307,6 +308,7 @@ struct AppState {
     proxy: EventLoopProxy<UserEvent>,
     webview_ready: bool,
     tray_webview_ready: bool,
+    last_main_logical_height: f64,
     last_tray_anchor: Option<(i32, i32)>,
     last_tray_logical_height: f64,
     tray_opened_at: Option<Instant>,
@@ -322,6 +324,7 @@ impl AppState {
         tray: Option<TrayController>,
         proxy: EventLoopProxy<UserEvent>,
         main_target_visible: bool,
+        initial_main_height: f64,
         initial_tray_height: f64,
     ) -> Self {
         let status_message =
@@ -347,6 +350,7 @@ impl AppState {
             proxy,
             webview_ready: false,
             tray_webview_ready: false,
+            last_main_logical_height: initial_main_height,
             last_tray_anchor: None,
             last_tray_logical_height: initial_tray_height,
             tray_opened_at: None,
@@ -690,22 +694,24 @@ impl AppState {
         let Some(profile) = self.config.profiles.iter().find(|p| p.id == profile_id).cloned() else {
             return;
         };
+        let previous_active_id = self.config.active_profile_id.clone();
 
+        let status = format_active_dns_status(&self.config.profiles, Some(&profile.id));
         let gen = self.begin_dns_op(
             Some(profile.id.clone()),
             true,
-            format!("Applying {}...", profile.name),
+            status,
             webview,
             tray_webview,
             main_visible,
         );
 
+        let cached_adapters = self.adapters.clone();
         let selected_adapter = self.config.selected_adapter.clone();
         let enable_ipv6 = self.config.enable_ipv6;
         let enable_doh = self.config.enable_doh;
         let proxy = self.proxy.clone();
         let target_id = profile.id.clone();
-        let profile_name = profile.name.clone();
 
         std::thread::spawn(move || {
             let _guard = DNS_MUTATION_MUTEX
@@ -714,35 +720,60 @@ impl AppState {
             if LATEST_OP_GEN.load(Ordering::Acquire) != gen {
                 return;
             }
-            let initial_adapters = dns::list_adapters();
+            let mut adapters = if cached_adapters.is_empty() {
+                dns::list_adapters()
+            } else {
+                cached_adapters
+            };
             let result = dns::apply_profile(
-                &initial_adapters,
+                &adapters,
                 selected_adapter.as_deref(),
                 &profile,
                 enable_ipv6,
                 enable_doh,
             );
-            let updated_adapters = dns::list_adapters();
+            if result.is_ok() {
+                let mut applied_dns = vec![profile.primary_v4.clone()];
+                if !profile.secondary_v4.trim().is_empty() {
+                    applied_dns.push(profile.secondary_v4.clone());
+                }
+                for a in &mut adapters {
+                    if selected_adapter
+                        .as_deref()
+                        .map_or(true, |sel| sel == a.name.as_str())
+                    {
+                        a.current_dns = applied_dns.clone();
+                        a.is_dhcp = false;
+                    }
+                }
+            } else {
+                let refreshed = dns::list_adapters();
+                if !refreshed.is_empty() {
+                    adapters = refreshed;
+                }
+            }
             let _ = proxy.send_event(UserEvent::DnsApplyFinished {
                 gen,
+                previous_active_id,
                 target_profile_id: Some(target_id),
-                profile_name: Some(profile_name),
-                adapters: updated_adapters,
+                adapters,
                 result,
             });
         });
     }
 
     fn activate_dhcp(&mut self, webview: &WebView, tray_webview: &WebView, main_visible: bool) {
+        let previous_active_id = self.config.active_profile_id.clone();
         let gen = self.begin_dns_op(
             None,
             false,
-            "Restoring DHCP...".to_string(),
+            "System Default (DHCP)".to_string(),
             webview,
             tray_webview,
             main_visible,
         );
 
+        let cached_adapters = self.adapters.clone();
         let selected_adapter = self.config.selected_adapter.clone();
         let proxy = self.proxy.clone();
 
@@ -753,14 +784,33 @@ impl AppState {
             if LATEST_OP_GEN.load(Ordering::Acquire) != gen {
                 return;
             }
-            let initial_adapters = dns::list_adapters();
-            let result = dns::reset_to_dhcp(&initial_adapters, selected_adapter.as_deref());
-            let updated_adapters = dns::list_adapters();
+            let mut adapters = if cached_adapters.is_empty() {
+                dns::list_adapters()
+            } else {
+                cached_adapters
+            };
+            let result = dns::reset_to_dhcp(&adapters, selected_adapter.as_deref());
+            if result.is_ok() {
+                for a in &mut adapters {
+                    if selected_adapter
+                        .as_deref()
+                        .map_or(true, |sel| sel == a.name.as_str())
+                    {
+                        a.current_dns.clear();
+                        a.is_dhcp = true;
+                    }
+                }
+            } else {
+                let refreshed = dns::list_adapters();
+                if !refreshed.is_empty() {
+                    adapters = refreshed;
+                }
+            }
             let _ = proxy.send_event(UserEvent::DnsApplyFinished {
                 gen,
+                previous_active_id,
                 target_profile_id: None,
-                profile_name: None,
-                adapters: updated_adapters,
+                adapters,
                 result,
             });
         });
@@ -1120,10 +1170,11 @@ fn main() {
     }));
 
     let window_icon = WindowIcon::from_rgba(generate_app_icon_rgba(32), 32, 32).ok();
+    let initial_main_height = compute_main_logical_height(config.profiles.len());
 
     let mut main_builder = WindowBuilder::new()
         .with_title(WINDOW_TITLE)
-        .with_inner_size(LogicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT))
+        .with_inner_size(LogicalSize::new(MAIN_WINDOW_WIDTH, initial_main_height))
         .with_decorations(false)
         .with_resizable(false)
         .with_visible(!hide_on_boot)
@@ -1214,6 +1265,7 @@ fn main() {
         tray,
         proxy,
         !hide_on_boot,
+        initial_main_height,
         initial_tray_height,
     );
     state.spawn_refresh_adapters(!hide_on_boot);
@@ -1382,6 +1434,13 @@ fn main() {
                                 }
                                 state.sync_webview(&webview);
                             }
+                            IpcMessage::ResizeWindow { height } => {
+                                let clamped = height.round().clamp(MAIN_MIN_HEIGHT, MAIN_MAX_HEIGHT);
+                                if (clamped - state.last_main_logical_height).abs() >= 1.0 {
+                                    state.last_main_logical_height =
+                                        resize_main_window(&window, clamped);
+                                }
+                            }
                             IpcMessage::DragWindow => {
                                 let _ = window.drag_window();
                             }
@@ -1495,8 +1554,8 @@ fn main() {
                 }
                 UserEvent::DnsApplyFinished {
                     gen,
+                    previous_active_id,
                     target_profile_id,
-                    profile_name,
                     adapters,
                     result,
                 } => {
@@ -1515,29 +1574,23 @@ fn main() {
                                 }
                                 state.save_config();
                                 state.sync_tray_icon();
-                                if let Some(name) = profile_name {
-                                    if !state.status_is_error {
-                                        state.set_transient_status(format!(
-                                            "Applied {name} · Cache flushed"
-                                        ));
-                                    }
+                                if target_profile_id.is_some() {
                                     state.spawn_active_probe(false);
                                 } else {
                                     state.clear_active_probe_state();
-                                    if !state.status_is_error {
-                                        state.set_transient_status("Restored DHCP · Cache flushed");
-                                    }
                                 }
                             }
                             Err(err) => {
-                                if !state.adapters.is_empty() {
-                                    state.config.active_profile_id = dns::detect_active_profile_id(
+                                state.config.active_profile_id = if !state.adapters.is_empty() {
+                                    dns::detect_active_profile_id(
                                         &state.adapters,
                                         state.config.selected_adapter.as_deref(),
                                         &state.config.profiles,
-                                    );
-                                    state.save_config();
-                                }
+                                    )
+                                } else {
+                                    previous_active_id
+                                };
+                                state.save_config();
                                 state.clear_active_probe_state();
                                 state.sync_tray_icon();
                                 state.set_error_status(err);

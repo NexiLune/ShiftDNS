@@ -1,6 +1,6 @@
 [package]
 name = "shiftdns"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2021"
 description = "Ultra-lightweight minimal Windows DNS switcher with system tray quick-toggle"
 authors = ["ShiftDNS"]
@@ -20,6 +20,7 @@ serde_json = "1.0"
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
     "Win32_Security",
+    "Win32_System_LibraryLoader",
     "Win32_System_Threading",
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_Shell",

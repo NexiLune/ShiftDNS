@@ -318,26 +318,22 @@
     transform: scale(0.8);
   }
 
-  /* Minimal Smooth Scroll Containers (DNS List = 416px matching preview, Settings, Add DNS Form) */
+  /* Dynamic Scroll Containers (fits content up to DHCP + 3 DNS rows = 204px, scrolls from 4th row) */
   .dns-list,
   .settings-scroll,
   .form-scroll {
-    flex: 1;
+    flex: 0 1 auto;
     min-height: 0;
-    height: 100%;
+    max-height: 204px;
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: contain;
     scroll-behavior: smooth;
-    padding-bottom: 16px;
+    padding-bottom: 0;
   }
 
   .settings-scroll {
     padding-bottom: 6px;
-  }
-
-  .form-scroll {
-    padding-bottom: 0;
   }
 
   .scroll-fade.fade-bottom {
@@ -394,8 +390,8 @@
   .dns-row {
     position: relative;
     width: 100%;
-    height: 56px;
-    min-height: 56px;
+    height: 51px;
+    min-height: 51px;
     box-sizing: border-box;
     display: flex;
     align-items: center;
@@ -407,8 +403,8 @@
 
   .dns-row.last-row {
     border-bottom: 0;
-    height: 55px;
-    min-height: 55px;
+    height: 50px;
+    min-height: 50px;
   }
   .dns-row.active { background: var(--active-bg); }
   .dns-row:not(.active):hover { background: var(--hover-bg); }
@@ -464,7 +460,7 @@
   .dhcp-btn {
     width: 100%;
     height: 100%;
-    padding: 10px 16px 10px 20px;
+    padding: 7px 16px 7px 20px;
     border: 0;
     background: transparent;
     color: inherit;
@@ -482,7 +478,7 @@
     flex: 1;
     min-width: 0;
     height: 100%;
-    padding: 10px 8px 10px 20px;
+    padding: 7px 8px 7px 20px;
     border: 0;
     background: transparent;
     color: inherit;
@@ -525,7 +521,7 @@
 
   .row-name {
     font-size: 13px;
-    line-height: 19.5px;
+    line-height: 18px;
     font-weight: 500;
     color: var(--text);
     white-space: nowrap;
@@ -544,6 +540,7 @@
   .row-ips {
     font-size: 12px;
     line-height: 16px;
+    margin-top: 1px;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     color: var(--text-muted);
@@ -1214,7 +1211,7 @@
   const CATEGORIES = ['Custom', 'Privacy', 'Ad-Block', 'Security', 'Speed', 'Family'];
 
   const appState = {
-    appVersion: '1.0.0',
+    appVersion: '',
     profiles: [],
     activeProfileId: null,
     darkMode: true,
@@ -1646,6 +1643,38 @@
     el.classList.toggle('fade-bottom', showBottom);
   }
 
+  const WINDOW_CHROME_HEIGHT = 82; // 44px titlebar + 36px footer + 2px outer border
+  const WINDOW_MAX_BODY_HEIGHT = 204; // DHCP (51px) + 3 DNS rows (51+51+50 = 203px)
+  const WINDOW_MIN_HEIGHT = 160;
+  const WINDOW_MAX_HEIGHT = WINDOW_CHROME_HEIGHT + WINDOW_MAX_BODY_HEIGHT; // 286px
+  let lastReportedWindowHeight = null;
+
+  function reportWindowHeight(el) {
+    if (!el) return;
+    const contentH = Math.ceil(el.scrollHeight);
+    const bodyH = Math.min(contentH, WINDOW_MAX_BODY_HEIGHT);
+    const totalH = Math.max(WINDOW_MIN_HEIGHT, Math.min(WINDOW_MAX_HEIGHT, WINDOW_CHROME_HEIGHT + bodyH));
+    if (totalH !== lastReportedWindowHeight) {
+      lastReportedWindowHeight = totalH;
+      postIpc({ type: 'resizeWindow', height: totalH });
+    }
+  }
+
+  function applyOptimisticActivation(targetId) {
+    const selected = targetId ? appState.profiles.find((p) => p.id === targetId) || null : null;
+    appState.activeProfileId = targetId;
+    appState.activeLatency = undefined;
+    appState.activeResolveStatus = null;
+    appState.activeResolvedIp = null;
+    appState.probingActive = Boolean(targetId);
+    appState.statusIsError = false;
+    appState.statusMessage = selected
+      ? `Active: ${selected.name} (${selected.primary_v4})`
+      : 'System Default (DHCP)';
+    renderAll(false);
+    postIpc({ type: 'activateProfile', id: targetId });
+  }
+
   let activeScrollObserver = null;
   function attachScrollFade(el) {
     if (activeScrollObserver) {
@@ -1653,8 +1682,11 @@
       activeScrollObserver = null;
     }
     if (!el) return;
-    const sync = () => updateScrollFade(el);
-    el.addEventListener('scroll', sync, { passive: true });
+    const sync = () => {
+      updateScrollFade(el);
+      reportWindowHeight(el);
+    };
+    el.addEventListener('scroll', () => updateScrollFade(el), { passive: true });
     if (typeof ResizeObserver === 'function') {
       activeScrollObserver = new ResizeObserver(sync);
       activeScrollObserver.observe(el);
@@ -1696,7 +1728,7 @@
     dhcpRow.querySelector('button').onclick = () => {
       focusedNavId = null;
       playSound('dhcp');
-      postIpc({ type: 'activateProfile', id: null });
+      applyOptimisticActivation(null);
     };
     list.appendChild(dhcpRow);
 
@@ -1766,7 +1798,7 @@
           }
           focusedNavId = null;
           playSound('activate');
-          postIpc({ type: 'activateProfile', id: p.id });
+          applyOptimisticActivation(p.id);
         });
 
         row.querySelector('.action-btn.edit').onclick = (ev) => {
@@ -2052,7 +2084,9 @@
     } else if (u.status === 'error') {
       container.innerHTML = `<span class="settings-update-meta err" title="${escHtml(u.message || 'Check failed')}">${escHtml(u.message || 'Check failed')}</span>`;
     } else {
-      container.innerHTML = `<span class="settings-update-meta">v${escHtml(appState.appVersion || '1.0.0')}</span>`;
+      container.innerHTML = appState.appVersion
+        ? `<span class="settings-update-meta">v${escHtml(appState.appVersion)}</span>`
+        : '';
     }
   }
 
@@ -2319,7 +2353,9 @@
       box.style.display = showAdvanced ? 'flex' : 'none';
       btn.setAttribute('aria-expanded', String(showAdvanced));
       btn.innerHTML = `${showAdvanced ? ICONS.minus : ICONS.plus}<span>IPv6 / DoH</span>`;
-      updateScrollFade(wrap.querySelector('.form-scroll'));
+      const scrollEl = wrap.querySelector('.form-scroll');
+      updateScrollFade(scrollEl);
+      reportWindowHeight(scrollEl);
     };
 
     formEl.onsubmit = (ev) => {
@@ -2450,7 +2486,7 @@
       const targetId = focusedNavId === DHCP_ID ? null : focusedNavId;
       focusedNavId = null;
       playSound(targetId ? 'activate' : 'dhcp');
-      postIpc({ type: 'activateProfile', id: targetId });
+      applyOptimisticActivation(targetId);
     }
   });
 
@@ -2459,10 +2495,14 @@
       pendingSyncPayload = next;
       return;
     }
+    const becameError = Boolean(next.statusIsError) && !appState.statusIsError;
     if (!('activeLatency' in next)) {
       appState.activeLatency = undefined;
     }
     Object.assign(appState, next);
+    if (becameError) {
+      playSound('error');
+    }
     if (viewMode === 'servers') {
       renderAll(false);
     } else {
