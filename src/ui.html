@@ -178,7 +178,6 @@
     color: var(--text-muted);
     background: transparent;
   }
-  html.suspend-hover .back-btn:hover { background: transparent; }
   html.suspend-hover .dns-row:not(.active):hover { background: transparent; }
   html.suspend-hover .dns-row:hover .grip-icon { opacity: 0; }
   html.suspend-hover .dns-row:not(.confirming-delete):hover .row-actions { opacity: 0; pointer-events: none; }
@@ -204,6 +203,7 @@
   .title-left {
     display: flex;
     align-items: center;
+    gap: 6px;
     flex-shrink: 0;
   }
 
@@ -216,28 +216,7 @@
     color: var(--text);
   }
 
-  .back-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-left: -6px;
-    padding: 4px 6px;
-    border: 0;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text);
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    cursor: pointer;
-    transition: background-color 150ms var(--ease-unslop), transform 140ms var(--ease-unslop);
-  }
-
-  .back-btn:hover { background: var(--icon-hover-bg); }
-  .back-btn:active { transform: scale(0.98); }
-  .back-btn:focus-visible { outline: 1px solid var(--kb-ring); }
-  .back-btn svg { width: 15px; height: 15px; color: var(--text-muted); }
+  .icon-btn.back-icon { margin-left: -6px; }
 
   .drag-spacer {
     flex: 1;
@@ -1544,14 +1523,14 @@
     activeTooltipHiders.clear();
 
     if (viewMode === 'settings') {
-      left.innerHTML = `<button type="button" class="back-btn" id="btn-back" aria-label="Back to DNS servers">${ICONS.chevronLeft}<span>Settings</span></button>`;
+      left.innerHTML = `<button type="button" class="icon-btn back-icon" id="btn-back" aria-label="Back to DNS servers">${ICONS.chevronLeft}</button><span class="brand">Settings</span>`;
       document.getElementById('btn-back').onclick = () => {
         playSound('click');
         transitionView('servers');
       };
     } else if (viewMode === 'add-dns') {
       const label = editingProfile ? 'Edit DNS' : 'Add DNS';
-      left.innerHTML = `<button type="button" class="back-btn" id="btn-back" aria-label="Back to DNS servers">${ICONS.chevronLeft}<span>${label}</span></button>`;
+      left.innerHTML = `<button type="button" class="icon-btn back-icon" id="btn-back" aria-label="Back to DNS servers">${ICONS.chevronLeft}</button><span class="brand">${label}</span>`;
       document.getElementById('btn-back').onclick = () => {
         playSound('click');
         const target = formReturnView;
