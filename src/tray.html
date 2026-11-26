@@ -14,7 +14,7 @@
 
     --bg: #0E1012;
     --chrome-bg: #0B0D10;
-    --border: rgba(255, 255, 255, 0.06);
+    --border: rgba(255, 255, 255, 0.08);
     --border-outer: #22252A;
     --text: #EDF0F5;
     --text-muted: #7C8594;
@@ -27,7 +27,7 @@
   html.light {
     --bg: #FFFFFF;
     --chrome-bg: #F6F7F9;
-    --border: rgba(23, 23, 23, 0.06);
+    --border: rgba(23, 23, 23, 0.08);
     --border-outer: #E5E5E5;
     --text: #171717;
     --text-muted: #737373;
@@ -197,10 +197,59 @@
 
   const state = {
     darkMode: true,
+    soundEffects: true,
     mainVisible: true,
     activeProfileId: null,
     topProfiles: [],
   };
+
+  const TRAY_SOUNDS = {
+    activate: [
+      { type: 'sine', f0: 494, f1: 523.25, delay: 0, dur: 0.065, gain: 0.06 },
+      { type: 'sine', f0: 783.99, delay: 0.048, dur: 0.135, gain: 0.055 },
+      { type: 'sine', f0: 1567.98, delay: 0.048, dur: 0.075, gain: 0.015 },
+    ],
+    dhcp: [
+      { type: 'sine', f0: 587.33, f1: 523.25, delay: 0, dur: 0.065, gain: 0.055 },
+      { type: 'sine', f0: 440, f1: 392, delay: 0.048, dur: 0.125, gain: 0.05 },
+    ],
+    click: [{ type: 'sine', f0: 920, f1: 510, delay: 0, dur: 0.026, gain: 0.04 }],
+  };
+
+  let audioCtx = null;
+  function playSound(cue) {
+    if (!state.soundEffects) return;
+    const steps = TRAY_SOUNDS[cue];
+    if (!steps) return;
+    try {
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return;
+      if (!audioCtx) audioCtx = new Ctor();
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(3800, audioCtx.currentTime);
+      filter.connect(audioCtx.destination);
+      const base = audioCtx.currentTime + 0.002;
+      for (const s of steps) {
+        const start = base + s.delay;
+        const end = start + s.dur;
+        const atk = Math.min(0.004, s.dur * 0.25);
+        const osc = audioCtx.createOscillator();
+        osc.type = s.type;
+        osc.frequency.setValueAtTime(s.f0, start);
+        if (s.f1 && s.f1 !== s.f0) osc.frequency.exponentialRampToValueAtTime(s.f1, end);
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.linearRampToValueAtTime(s.gain, start + atk);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+        osc.connect(gain);
+        gain.connect(filter);
+        osc.start(start);
+        osc.stop(end + 0.008);
+      }
+    } catch {}
+  }
 
   function postIpc(msg) {
     if (window.ipc && typeof window.ipc.postMessage === 'function') {
@@ -288,9 +337,11 @@
         const action = btn.dataset.action;
         clearTrayHoverState();
         if (action === 'showMain') {
+          playSound('click');
           postIpc({ type: 'trayShowMain' });
         } else if (action === 'activate') {
           const id = btn.dataset.id || null;
+          playSound(id ? 'activate' : 'dhcp');
           postIpc({ type: 'trayActivate', id });
         } else if (action === 'quit') {
           postIpc({ type: 'trayQuit' });

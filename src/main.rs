@@ -5,8 +5,13 @@ mod config;
 mod dns;
 mod icon_gen;
 mod tray;
+mod win32;
 
-use config::{is_valid_doh_url, set_windows_startup, top_used_profiles, AppConfig, DnsProfile};
+use benchmark::{DnsProbeResult, ResolveStatus, UpdateCheckOutcome};
+use config::{
+    is_valid_doh_url, is_valid_hostname, normalize_hostname, set_windows_startup,
+    top_used_profiles, AppConfig, DnsProfile,
+};
 use dns::NetworkAdapter;
 use icon_gen::generate_app_icon_rgba;
 use serde::{Deserialize, Serialize};
@@ -15,47 +20,30 @@ use std::net::{IpAddr, Ipv4Addr};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-
-static DNS_MUTATION_MUTEX: Mutex<()> = Mutex::new(());
-static LATEST_OP_GEN: AtomicU64 = AtomicU64::new(0);
-use tao::dpi::{LogicalSize, PhysicalPosition};
+use tao::dpi::LogicalSize;
 use tao::event::{Event, StartCause, WindowEvent};
 use tao::event_loop::{ControlFlow, EventLoopBuilder, EventLoopProxy};
 use tao::window::{Icon as WindowIcon, Window, WindowBuilder};
 use tray::TrayController;
 use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent};
+use win32::{
+    acquire_single_instance, compute_tray_logical_height, configure_window_dwm,
+    ensure_tray_topmost, focus_window, open_release_url, position_tray_window, resolve_tray_anchor,
+    TRAY_MAX_HEIGHT, TRAY_MIN_HEIGHT, TRAY_POPUP_WIDTH,
+};
 use wry::{WebContext, WebView, WebViewBuilder};
 
 #[cfg(target_os = "windows")]
-use tao::platform::windows::{WindowBuilderExtWindows, WindowExtWindows};
+use tao::platform::windows::WindowBuilderExtWindows;
 
-#[cfg(target_os = "windows")]
-use windows_sys::Win32::Foundation::{
-    CloseHandle, GetLastError, ERROR_ALREADY_EXISTS, HANDLE, HWND, POINT,
-};
-#[cfg(target_os = "windows")]
-use windows_sys::Win32::Graphics::Dwm::{
-    DwmSetWindowAttribute, DWMWCP_ROUND, DWMWA_TRANSITIONS_FORCEDISABLED,
-    DWMWA_WINDOW_CORNER_PREFERENCE,
-};
-#[cfg(target_os = "windows")]
-use windows_sys::Win32::Graphics::Gdi::{
-    GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST,
-};
-#[cfg(target_os = "windows")]
-use windows_sys::Win32::System::Threading::CreateMutexW;
-#[cfg(target_os = "windows")]
-use windows_sys::Win32::UI::WindowsAndMessaging::{
-    FindWindowW, GetCursorPos, SetForegroundWindow, SetWindowPos, ShowWindow, HWND_TOPMOST,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_RESTORE, SW_SHOW,
-};
+static DNS_MUTATION_MUTEX: Mutex<()> = Mutex::new(());
+static LATEST_OP_GEN: AtomicU64 = AtomicU64::new(0);
 
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 const WINDOW_TITLE: &str = "ShiftDNS";
 const TRAY_WINDOW_TITLE: &str = "ShiftDNS Tray";
 const WINDOW_WIDTH: f64 = 420.0;
-const WINDOW_HEIGHT: f64 = 286.0;
-const TRAY_POPUP_WIDTH: f64 = 256.0;
-const TRAY_EDGE_GAP_PX: f64 = 8.0;
+const WINDOW_HEIGHT: f64 = 498.0;
 
 enum UserEvent {
     TrayIcon(TrayIconEvent),
@@ -80,7 +68,11 @@ enum UserEvent {
     },
     ProbeResult {
         gen: u64,
-        rtt: Option<u128>,
+        result: DnsProbeResult,
+        manual: bool,
+    },
+    UpdateCheckFinished {
+        outcome: UpdateCheckOutcome,
     },
 }
 
@@ -108,6 +100,12 @@ enum IpcMessage {
     CycleAdapter,
     #[serde(rename = "toggleSetting")]
     ToggleSetting { key: String, value: bool },
+    #[serde(rename = "setResolveDomain")]
+    SetResolveDomain { domain: String },
+    #[serde(rename = "checkUpdate")]
+    CheckUpdate,
+    #[serde(rename = "openReleaseUrl")]
+    OpenReleaseUrl { url: String },
     #[serde(rename = "dragWindow")]
     DragWindow,
     #[serde(rename = "beginHide")]
@@ -145,13 +143,47 @@ struct SaveProfilePayload {
     doh_template: String,
 }
 
+#[derive(Clone, Serialize)]
+struct UpdateUiState {
+    status: &'static str,
+    #[serde(rename = "latestVersion")]
+    latest_version: Option<String>,
+    #[serde(rename = "downloadUrl")]
+    download_url: Option<String>,
+    message: Option<String>,
+}
+
+impl UpdateUiState {
+    fn idle() -> Self {
+        Self {
+            status: "idle",
+            latest_version: None,
+            download_url: None,
+            message: None,
+        }
+    }
+
+    fn checking() -> Self {
+        Self {
+            status: "checking",
+            latest_version: None,
+            download_url: None,
+            message: Some("Checking GitHub...".to_string()),
+        }
+    }
+}
+
 #[derive(Serialize)]
 struct UiSyncPayload<'a> {
+    #[serde(rename = "appVersion")]
+    app_version: &'static str,
     profiles: &'a [DnsProfile],
     #[serde(rename = "activeProfileId")]
     active_profile_id: Option<&'a str>,
     #[serde(rename = "darkMode")]
     dark_mode: bool,
+    #[serde(rename = "soundEffects")]
+    sound_effects: bool,
     #[serde(rename = "enableIpv6")]
     enable_ipv6: bool,
     #[serde(rename = "enableDoh")]
@@ -160,12 +192,20 @@ struct UiSyncPayload<'a> {
     start_minimized: bool,
     #[serde(rename = "launchAtStartup")]
     launch_at_startup: bool,
+    #[serde(rename = "resolveCheckDomain")]
+    resolve_check_domain: &'a str,
     #[serde(rename = "adapterLabel")]
     adapter_label: String,
     #[serde(rename = "activeLatency", skip_serializing_if = "Option::is_none")]
     active_latency: Option<Option<u128>>,
+    #[serde(rename = "activeResolveStatus")]
+    active_resolve_status: Option<&'static str>,
+    #[serde(rename = "activeResolvedIp")]
+    active_resolved_ip: Option<&'a str>,
     #[serde(rename = "probingActive")]
     probing_active: bool,
+    #[serde(rename = "updateState")]
+    update_state: &'a UpdateUiState,
     #[serde(rename = "statusMessage")]
     status_message: &'a str,
     #[serde(rename = "statusIsError")]
@@ -176,6 +216,8 @@ struct UiSyncPayload<'a> {
 struct TraySyncPayload<'a> {
     #[serde(rename = "darkMode")]
     dark_mode: bool,
+    #[serde(rename = "soundEffects")]
+    sound_effects: bool,
     #[serde(rename = "mainVisible")]
     main_visible: bool,
     #[serde(rename = "activeProfileId")]
@@ -184,256 +226,76 @@ struct TraySyncPayload<'a> {
     top_profiles: Vec<DnsProfile>,
 }
 
-#[cfg(target_os = "windows")]
-fn to_wide(s: &str) -> Vec<u16> {
-    s.encode_utf16().chain(std::iter::once(0)).collect()
+struct ValidatedProfile {
+    name: String,
+    category: String,
+    primary_v4: String,
+    secondary_v4: String,
+    primary_v6: String,
+    secondary_v6: String,
+    doh_template: String,
 }
 
-#[cfg(target_os = "windows")]
-struct SingleInstanceGuard(HANDLE);
+fn validate_profile_payload(payload: &SaveProfilePayload) -> Result<ValidatedProfile, &'static str> {
+    let name = payload.name.trim().to_string();
+    let category = if payload.category.trim().is_empty() {
+        "Custom".to_string()
+    } else {
+        payload.category.trim().to_string()
+    };
+    let primary_v4 = payload.primary_v4.trim().to_string();
+    let secondary_v4 = payload.secondary_v4.trim().to_string();
+    let primary_v6 = payload.primary_v6.trim().to_string();
+    let secondary_v6 = payload.secondary_v6.trim().to_string();
+    let doh_template = payload.doh_template.trim().to_string();
 
-#[cfg(target_os = "windows")]
-impl Drop for SingleInstanceGuard {
-    fn drop(&mut self) {
-        if !self.0.is_null() {
-            unsafe {
-                CloseHandle(self.0);
-            }
-        }
+    if name.is_empty() {
+        return Err("Name is required.");
     }
-}
-
-#[cfg(target_os = "windows")]
-fn focus_hwnd(hwnd: HWND) {
-    if !hwnd.is_null() {
-        unsafe {
-            ShowWindow(hwnd, SW_SHOW);
-            ShowWindow(hwnd, SW_RESTORE);
-            SetForegroundWindow(hwnd);
-        }
+    if primary_v4.parse::<Ipv4Addr>().is_err() {
+        return Err("Primary IPv4 address is invalid.");
     }
-}
-
-#[cfg(target_os = "windows")]
-fn focus_window_by_title(window_title: &str) {
-    let title = to_wide(window_title);
-    let hwnd = unsafe { FindWindowW(std::ptr::null(), title.as_ptr()) };
-    focus_hwnd(hwnd);
-}
-
-#[cfg(not(target_os = "windows"))]
-fn focus_window_by_title(_window_title: &str) {}
-
-#[cfg(target_os = "windows")]
-fn acquire_single_instance() -> Option<SingleInstanceGuard> {
-    let name = to_wide("Local\\ShiftDNS_SingleInstance_Mutex");
-    unsafe {
-        let handle = CreateMutexW(std::ptr::null(), 0, name.as_ptr());
-        if !handle.is_null() && GetLastError() == ERROR_ALREADY_EXISTS {
-            CloseHandle(handle);
-            focus_window_by_title(WINDOW_TITLE);
-            return None;
-        }
-        Some(SingleInstanceGuard(handle))
+    if !secondary_v4.is_empty() && secondary_v4.parse::<Ipv4Addr>().is_err() {
+        return Err("Secondary IPv4 address is invalid.");
     }
-}
-
-#[cfg(not(target_os = "windows"))]
-struct SingleInstanceGuard;
-
-#[cfg(not(target_os = "windows"))]
-fn acquire_single_instance() -> Option<SingleInstanceGuard> {
-    Some(SingleInstanceGuard)
-}
-
-#[cfg(target_os = "windows")]
-fn configure_window_dwm_hwnd(hwnd: HWND, disable_transitions: bool, dark_mode: bool) {
-    if hwnd.is_null() {
-        return;
+    if !primary_v6.is_empty() && !matches!(primary_v6.parse::<IpAddr>(), Ok(IpAddr::V6(_))) {
+        return Err("Primary IPv6 address is invalid.");
     }
-    unsafe {
-        let preference = DWMWCP_ROUND; // 2: Rounded Windows 11 corners
-        let _ = DwmSetWindowAttribute(
-            hwnd,
-            DWMWA_WINDOW_CORNER_PREFERENCE as u32,
-            &preference as *const _ as *const _,
-            std::mem::size_of_val(&preference) as u32,
-        );
-        // Match subtle 1px Windows 11 DWM border color (#22252A dark / #E5E5E5 light in COLORREF 0x00BBGGRR)
-        const DWMWA_BORDER_COLOR: u32 = 34;
-        let border_color: u32 = if dark_mode { 0x002A2522 } else { 0x00E5E5E5 };
-        let _ = DwmSetWindowAttribute(
-            hwnd,
-            DWMWA_BORDER_COLOR,
-            &border_color as *const _ as *const _,
-            std::mem::size_of_val(&border_color) as u32,
-        );
-        if disable_transitions {
-            let force_disable: i32 = 1; // Win32 BOOL TRUE
-            let _ = DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_TRANSITIONS_FORCEDISABLED as u32,
-                &force_disable as *const _ as *const _,
-                std::mem::size_of_val(&force_disable) as u32,
-            );
-        }
+    if !secondary_v6.is_empty() && !matches!(secondary_v6.parse::<IpAddr>(), Ok(IpAddr::V6(_))) {
+        return Err("Secondary IPv6 address is invalid.");
     }
-}
-
-#[cfg(target_os = "windows")]
-fn configure_window_dwm(window: &Window, disable_transitions: bool, dark_mode: bool) {
-    let hwnd = window.hwnd() as HWND;
-    configure_window_dwm_hwnd(hwnd, disable_transitions, dark_mode);
-}
-
-#[cfg(not(target_os = "windows"))]
-fn configure_window_dwm(_window: &Window, _disable_transitions: bool, _dark_mode: bool) {}
-
-fn compute_tray_logical_height(main_visible: bool, preset_count: usize) -> f64 {
-    // Matches tray.html layout metrics:
-    // .tray-menu: 2px border + 10px vertical padding, 2px flex row gap
-    // .menu-item: 30px height; .divider: 9px (1px border + 8px vertical margin)
-    let menu_items = if main_visible { 0 } else { 1 } + 1 + preset_count + 1;
-    let dividers = if main_visible { 1 } else { 2 };
-    let child_count = menu_items + dividers;
-    let gaps = child_count.saturating_sub(1);
-    (12 + menu_items * 30 + dividers * 9 + gaps * 2) as f64
-}
-
-#[cfg(target_os = "windows")]
-fn resolve_tray_anchor(anchor_x: i32, anchor_y: i32) -> (i32, i32) {
-    if anchor_x != 0 || anchor_y != 0 {
-        return (anchor_x, anchor_y);
-    }
-    let mut pt = POINT { x: 0, y: 0 };
-    unsafe {
-        if GetCursorPos(&mut pt) != 0 {
-            return (pt.x, pt.y);
-        }
-    }
-    (anchor_x, anchor_y)
-}
-
-#[cfg(not(target_os = "windows"))]
-fn resolve_tray_anchor(anchor_x: i32, anchor_y: i32) -> (i32, i32) {
-    (anchor_x, anchor_y)
-}
-
-#[cfg(target_os = "windows")]
-fn ensure_tray_topmost(tray_window: &Window) {
-    tray_window.set_always_on_top(true);
-    let hwnd = tray_window.hwnd() as HWND;
-    if !hwnd.is_null() {
-        unsafe {
-            SetWindowPos(
-                hwnd,
-                HWND_TOPMOST,
-                0,
-                0,
-                0,
-                0,
-                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-            );
-        }
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn ensure_tray_topmost(tray_window: &Window) {
-    tray_window.set_always_on_top(true);
-}
-
-#[cfg(target_os = "windows")]
-fn position_tray_window(tray_window: &Window, anchor_x: i32, anchor_y: i32, logical_h: f64) {
-    let clamped_h = logical_h.clamp(85.0, 340.0);
-    let (cursor_x, cursor_y) = resolve_tray_anchor(anchor_x, anchor_y);
-
-    unsafe {
-        let pt = POINT {
-            x: cursor_x,
-            y: cursor_y,
-        };
-        let hmon = MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
-        let mut mi: MONITORINFO = std::mem::zeroed();
-        mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
-        if !hmon.is_null() && GetMonitorInfoW(hmon, &mut mi as *mut MONITORINFO) != 0 {
-            let work = mi.rcWork;
-            let work_mid_y = work.top + (work.bottom - work.top) / 2;
-
-            let initial_scale = tray_window.scale_factor().max(1.0);
-            tray_window.set_inner_size(LogicalSize::new(TRAY_POPUP_WIDTH, clamped_h));
-
-            let compute_xy = |scale: f64, outer_w: i32, outer_h: i32| -> (i32, i32, i32, i32) {
-                let w = outer_w.max((TRAY_POPUP_WIDTH * scale).round() as i32);
-                let h = outer_h.max((clamped_h * scale).round() as i32);
-                let edge_gap = (TRAY_EDGE_GAP_PX * scale).round() as i32;
-
-                let raw_x = cursor_x - w + (24.0 * scale).round() as i32;
-                let x = raw_x
-                    .max(work.left + edge_gap)
-                    .min((work.right - w - edge_gap).max(work.left + edge_gap));
-
-                // Anchor relative to cursor Y while clamping bottom edge >= 8px above rcWork.bottom
-                let raw_y = if cursor_y >= work_mid_y {
-                    (cursor_y - h - edge_gap).min(work.bottom - h - edge_gap)
-                } else {
-                    (cursor_y + edge_gap).max(work.top + edge_gap)
-                };
-                let y = raw_y
-                    .max(work.top + edge_gap)
-                    .min((work.bottom - h - edge_gap).max(work.top + edge_gap));
-                (x, y, w, h)
-            };
-
-            let outer = tray_window.outer_size();
-            let (mut x, mut y, mut w, mut h) =
-                compute_xy(initial_scale, outer.width as i32, outer.height as i32);
-            tray_window.set_outer_position(PhysicalPosition::new(x, y));
-
-            // Re-sync if moving onto another monitor updated the window's DPI scale factor
-            let settled_scale = tray_window.scale_factor().max(1.0);
-            if (settled_scale - initial_scale).abs() > 0.01 {
-                tray_window.set_inner_size(LogicalSize::new(TRAY_POPUP_WIDTH, clamped_h));
-                let outer_after = tray_window.outer_size();
-                (x, y, w, h) = compute_xy(
-                    settled_scale,
-                    outer_after.width as i32,
-                    outer_after.height as i32,
-                );
-                tray_window.set_outer_position(PhysicalPosition::new(x, y));
-            }
-
-            let hwnd = tray_window.hwnd() as HWND;
-            if !hwnd.is_null() {
-                SetWindowPos(hwnd, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE);
-            }
-            return;
-        }
+    if !is_valid_doh_url(&doh_template) {
+        return Err("DoH template must be a valid https:// URL.");
     }
 
-    let scale = tray_window.scale_factor().max(1.0);
-    let w = (TRAY_POPUP_WIDTH * scale).round() as i32;
-    let h = (clamped_h * scale).round() as i32;
-    let edge_gap = (TRAY_EDGE_GAP_PX * scale).round() as i32;
-    tray_window.set_inner_size(LogicalSize::new(TRAY_POPUP_WIDTH, clamped_h));
-    tray_window.set_outer_position(PhysicalPosition::new(
-        (cursor_x - w).max(0),
-        (cursor_y - h - edge_gap).max(0),
-    ));
+    Ok(ValidatedProfile {
+        name,
+        category,
+        primary_v4,
+        secondary_v4,
+        primary_v6,
+        secondary_v6,
+        doh_template,
+    })
 }
 
-#[cfg(not(target_os = "windows"))]
-fn position_tray_window(tray_window: &Window, anchor_x: i32, anchor_y: i32, logical_h: f64) {
-    tray_window.set_inner_size(LogicalSize::new(TRAY_POPUP_WIDTH, logical_h.clamp(85.0, 340.0)));
-    tray_window.set_outer_position(PhysicalPosition::new(anchor_x, anchor_y));
+fn eval_js_payload<T: Serialize>(webview: &WebView, fn_name: &str, payload: &T) {
+    if let Ok(json) = serde_json::to_string(payload) {
+        let script = format!("window.{fn_name} && window.{fn_name}({json});");
+        let _ = webview.evaluate_script(&script);
+    }
 }
 
 struct AppState {
     config: AppConfig,
     adapters: Vec<NetworkAdapter>,
     active_latency: Option<Option<u128>>,
+    active_resolve_status: Option<ResolveStatus>,
+    active_resolved_ip: Option<String>,
     probing_active: bool,
     probe_generation: u64,
+    update_state: UpdateUiState,
+    update_checking: bool,
     op_generation: u64,
     op_in_flight: bool,
     refresh_generation: u64,
@@ -468,8 +330,12 @@ impl AppState {
             config,
             adapters,
             active_latency: None,
+            active_resolve_status: None,
+            active_resolved_ip: None,
             probing_active: false,
             probe_generation: 0,
+            update_state: UpdateUiState::idle(),
+            update_checking: false,
             op_generation: 0,
             op_in_flight: false,
             refresh_generation: 0,
@@ -488,6 +354,13 @@ impl AppState {
             main_target_visible,
             main_hide_deadline: None,
         }
+    }
+
+    fn clear_active_probe_state(&mut self) {
+        self.active_latency = None;
+        self.active_resolve_status = None;
+        self.active_resolved_ip = None;
+        self.probing_active = false;
     }
 
     fn set_transient_status(&mut self, msg: impl Into<String>) {
@@ -517,7 +390,7 @@ impl AppState {
             .is_some_and(|t| t.elapsed() < Duration::from_secs(5))
         {
             if trigger_probe && self.config.active_profile_id.is_some() && !self.probing_active {
-                self.spawn_active_probe();
+                self.spawn_active_probe(false);
             }
             return;
         }
@@ -596,7 +469,8 @@ impl AppState {
             self.config.active_profile_id.as_deref(),
         )
         .len();
-        compute_tray_logical_height(main_visible, preset_count).clamp(85.0, 340.0)
+        compute_tray_logical_height(main_visible, preset_count)
+            .clamp(TRAY_MIN_HEIGHT, TRAY_MAX_HEIGHT)
     }
 
     fn sync_tray_webview(&self, tray_webview: &WebView, main_visible: bool) {
@@ -611,14 +485,12 @@ impl AppState {
         );
         let payload = TraySyncPayload {
             dark_mode: self.config.dark_mode,
+            sound_effects: self.config.sound_effects,
             main_visible,
             active_profile_id: self.config.active_profile_id.as_deref(),
             top_profiles,
         };
-        if let Ok(json) = serde_json::to_string(&payload) {
-            let script = format!("window.__shiftdnsTraySync && window.__shiftdnsTraySync({json});");
-            let _ = tray_webview.evaluate_script(&script);
-        }
+        eval_js_payload(tray_webview, "__shiftdnsTraySync", &payload);
     }
 
     fn sync_webview(&self, webview: &WebView) {
@@ -626,23 +498,26 @@ impl AppState {
             return;
         }
         let payload = UiSyncPayload {
+            app_version: APP_VERSION,
             profiles: &self.config.profiles,
             active_profile_id: self.config.active_profile_id.as_deref(),
             dark_mode: self.config.dark_mode,
+            sound_effects: self.config.sound_effects,
             enable_ipv6: self.config.enable_ipv6,
             enable_doh: self.config.enable_doh,
             start_minimized: self.config.start_minimized,
             launch_at_startup: self.config.launch_at_startup,
+            resolve_check_domain: &self.config.resolve_check_domain,
             adapter_label: self.adapter_label(),
             active_latency: self.active_latency,
+            active_resolve_status: self.active_resolve_status.map(|s| s.as_str()),
+            active_resolved_ip: self.active_resolved_ip.as_deref(),
             probing_active: self.probing_active,
+            update_state: &self.update_state,
             status_message: &self.status_message,
             status_is_error: self.status_is_error,
         };
-        if let Ok(json) = serde_json::to_string(&payload) {
-            let script = format!("window.__shiftdnsSync && window.__shiftdnsSync({json});");
-            let _ = webview.evaluate_script(&script);
-        }
+        eval_js_payload(webview, "__shiftdnsSync", &payload);
     }
 
     fn sync_all_ui(&self, webview: &WebView, tray_webview: &WebView, main_visible: bool) {
@@ -650,10 +525,9 @@ impl AppState {
         self.sync_tray_webview(tray_webview, main_visible);
     }
 
-    fn spawn_active_probe(&mut self) {
+    fn spawn_active_probe(&mut self, manual: bool) {
         let Some(active_id) = self.config.active_profile_id.as_deref() else {
-            self.active_latency = None;
-            self.probing_active = false;
+            self.clear_active_probe_state();
             return;
         };
         let Some(profile) = self.config.profiles.iter().find(|p| p.id == active_id) else {
@@ -672,10 +546,54 @@ impl AppState {
         let gen = self.probe_generation;
         self.probing_active = true;
 
+        let domain = self.config.resolve_check_domain.clone();
         let proxy = self.proxy.clone();
         std::thread::spawn(move || {
-            let rtt = benchmark::probe_dns_latency(&target_ip);
-            let _ = proxy.send_event(UserEvent::ProbeResult { gen, rtt });
+            let result = benchmark::probe_dns_resolve(&target_ip, &domain);
+            let _ = proxy.send_event(UserEvent::ProbeResult {
+                gen,
+                result,
+                manual,
+            });
+        });
+    }
+
+    fn set_resolve_domain(&mut self, domain: &str, webview: &WebView) {
+        if !is_valid_hostname(domain) {
+            self.set_error_status("Enter a valid domain (e.g. cloudflare.com)");
+            self.sync_webview(webview);
+            return;
+        }
+        let clean = normalize_hostname(domain);
+        if clean == self.config.resolve_check_domain {
+            if self.config.active_profile_id.is_some() {
+                self.spawn_active_probe(true);
+            }
+            self.sync_webview(webview);
+            return;
+        }
+        self.config.resolve_check_domain = clean.clone();
+        self.clear_active_probe_state();
+        self.save_config();
+        self.set_transient_status(format!("Resolve check: {clean}"));
+        if self.config.active_profile_id.is_some() {
+            self.spawn_active_probe(false);
+        }
+        self.sync_webview(webview);
+    }
+
+    fn check_for_updates(&mut self, webview: &WebView) {
+        if self.update_checking {
+            return;
+        }
+        self.update_checking = true;
+        self.update_state = UpdateUiState::checking();
+        self.sync_webview(webview);
+
+        let proxy = self.proxy.clone();
+        std::thread::spawn(move || {
+            let outcome = benchmark::check_github_update(APP_VERSION);
+            let _ = proxy.send_event(UserEvent::UpdateCheckFinished { outcome });
         });
     }
 
@@ -702,8 +620,7 @@ impl AppState {
         };
         if next_active_id != self.config.active_profile_id {
             self.config.active_profile_id = next_active_id;
-            self.active_latency = None;
-            self.probing_active = false;
+            self.clear_active_probe_state();
             self.probe_generation = self.probe_generation.saturating_add(1);
         }
         self.save_config();
@@ -729,11 +646,38 @@ impl AppState {
             && self.active_latency.is_none()
             && !self.probing_active
         {
-            self.spawn_active_probe();
+            self.spawn_active_probe(false);
         }
         self.sync_all_ui(webview, tray_webview, main_visible);
         self.last_refresh_at = None;
         self.spawn_refresh_adapters(true);
+    }
+
+    fn begin_dns_op(
+        &mut self,
+        active_profile_id: Option<String>,
+        probing_active: bool,
+        status_message: String,
+        webview: &WebView,
+        tray_webview: &WebView,
+        main_visible: bool,
+    ) -> u64 {
+        self.op_generation = self.op_generation.saturating_add(1);
+        let gen = self.op_generation;
+        LATEST_OP_GEN.store(gen, Ordering::Release);
+        self.op_in_flight = true;
+        self.probe_generation = self.probe_generation.saturating_add(1);
+
+        // Optimistic immediate UI update so FLIP animations & checkmark transitions run at 60fps
+        self.config.active_profile_id = active_profile_id;
+        self.clear_active_probe_state();
+        self.probing_active = probing_active;
+        self.status_revert_at = None;
+        self.status_message = status_message;
+        self.status_is_error = false;
+        self.sync_tray_icon();
+        self.sync_all_ui(webview, tray_webview, main_visible);
+        gen
     }
 
     fn activate_profile(
@@ -747,21 +691,14 @@ impl AppState {
             return;
         };
 
-        self.op_generation = self.op_generation.saturating_add(1);
-        let gen = self.op_generation;
-        LATEST_OP_GEN.store(gen, Ordering::Release);
-        self.op_in_flight = true;
-        self.probe_generation = self.probe_generation.saturating_add(1);
-
-        // Optimistic immediate UI update so FLIP animations & checkmark transitions run at 60fps
-        self.config.active_profile_id = Some(profile.id.clone());
-        self.active_latency = None;
-        self.probing_active = true;
-        self.status_revert_at = None;
-        self.status_message = format!("Applying {}...", profile.name);
-        self.status_is_error = false;
-        self.sync_tray_icon();
-        self.sync_all_ui(webview, tray_webview, main_visible);
+        let gen = self.begin_dns_op(
+            Some(profile.id.clone()),
+            true,
+            format!("Applying {}...", profile.name),
+            webview,
+            tray_webview,
+            main_visible,
+        );
 
         let selected_adapter = self.config.selected_adapter.clone();
         let enable_ipv6 = self.config.enable_ipv6;
@@ -797,20 +734,14 @@ impl AppState {
     }
 
     fn activate_dhcp(&mut self, webview: &WebView, tray_webview: &WebView, main_visible: bool) {
-        self.op_generation = self.op_generation.saturating_add(1);
-        let gen = self.op_generation;
-        LATEST_OP_GEN.store(gen, Ordering::Release);
-        self.op_in_flight = true;
-        self.probe_generation = self.probe_generation.saturating_add(1);
-
-        self.config.active_profile_id = None;
-        self.active_latency = None;
-        self.probing_active = false;
-        self.status_revert_at = None;
-        self.status_message = "Restoring DHCP...".to_string();
-        self.status_is_error = false;
-        self.sync_tray_icon();
-        self.sync_all_ui(webview, tray_webview, main_visible);
+        let gen = self.begin_dns_op(
+            None,
+            false,
+            "Restoring DHCP...".to_string(),
+            webview,
+            tray_webview,
+            main_visible,
+        );
 
         let selected_adapter = self.config.selected_adapter.clone();
         let proxy = self.proxy.clone();
@@ -842,75 +773,40 @@ impl AppState {
         tray_webview: &WebView,
         main_visible: bool,
     ) {
-        let name = payload.name.trim().to_string();
-        let category = if payload.category.trim().is_empty() {
-            "Custom".to_string()
-        } else {
-            payload.category.trim().to_string()
+        let validated = match validate_profile_payload(&payload) {
+            Ok(v) => v,
+            Err(err) => {
+                self.set_error_status(err);
+                self.sync_webview(webview);
+                return;
+            }
         };
-        let p4 = payload.primary_v4.trim().to_string();
-        let s4 = payload.secondary_v4.trim().to_string();
-        let p6 = payload.primary_v6.trim().to_string();
-        let s6 = payload.secondary_v6.trim().to_string();
-        let doh = payload.doh_template.trim().to_string();
-
-        if name.is_empty() {
-            self.set_error_status("Name is required.");
-            self.sync_webview(webview);
-            return;
-        }
-        if p4.parse::<Ipv4Addr>().is_err() {
-            self.set_error_status("Primary IPv4 address is invalid.");
-            self.sync_webview(webview);
-            return;
-        }
-        if !s4.is_empty() && s4.parse::<Ipv4Addr>().is_err() {
-            self.set_error_status("Secondary IPv4 address is invalid.");
-            self.sync_webview(webview);
-            return;
-        }
-        if !p6.is_empty() && !matches!(p6.parse::<IpAddr>(), Ok(IpAddr::V6(_))) {
-            self.set_error_status("Primary IPv6 address is invalid.");
-            self.sync_webview(webview);
-            return;
-        }
-        if !s6.is_empty() && !matches!(s6.parse::<IpAddr>(), Ok(IpAddr::V6(_))) {
-            self.set_error_status("Secondary IPv6 address is invalid.");
-            self.sync_webview(webview);
-            return;
-        }
-        if !is_valid_doh_url(&doh) {
-            self.set_error_status("DoH template must be a valid https:// URL.");
-            self.sync_webview(webview);
-            return;
-        }
 
         if let Some(editing_id) = payload.id.filter(|id| !id.is_empty()) {
-            let mut updated_profile = None;
+            let mut updated = false;
             if let Some(target) = self.config.profiles.iter_mut().find(|p| p.id == editing_id) {
-                target.name = name.clone();
-                target.category = category;
-                target.primary_v4 = p4;
-                target.secondary_v4 = s4;
-                target.primary_v6 = p6;
-                target.secondary_v6 = s6;
-                target.doh_template = doh;
-                updated_profile = Some(target.clone());
+                target.name = validated.name.clone();
+                target.category = validated.category;
+                target.primary_v4 = validated.primary_v4;
+                target.secondary_v4 = validated.secondary_v4;
+                target.primary_v6 = validated.primary_v6;
+                target.secondary_v6 = validated.secondary_v6;
+                target.doh_template = validated.doh_template;
+                updated = true;
             }
             self.save_config();
-            if self.config.active_profile_id.as_deref() == Some(editing_id.as_str()) {
-                if updated_profile.is_some() {
-                    self.activate_profile(&editing_id, webview, tray_webview, main_visible);
-                    return;
-                }
+            if updated && self.config.active_profile_id.as_deref() == Some(editing_id.as_str()) {
+                self.activate_profile(&editing_id, webview, tray_webview, main_visible);
+                return;
             }
             self.sync_tray_icon();
-            self.set_transient_status(format!("Updated {name}"));
+            self.set_transient_status(format!("Updated {}", validated.name));
             self.sync_all_ui(webview, tray_webview, main_visible);
             return;
         }
 
-        let slug: String = name
+        let slug: String = validated
+            .name
             .to_lowercase()
             .chars()
             .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
@@ -933,18 +829,18 @@ impl AppState {
 
         self.config.profiles.push(DnsProfile {
             id,
-            name: name.clone(),
-            category,
-            primary_v4: p4,
-            secondary_v4: s4,
-            primary_v6: p6,
-            secondary_v6: s6,
-            doh_template: doh,
+            name: validated.name.clone(),
+            category: validated.category,
+            primary_v4: validated.primary_v4,
+            secondary_v4: validated.secondary_v4,
+            primary_v6: validated.primary_v6,
+            secondary_v6: validated.secondary_v6,
+            doh_template: validated.doh_template,
             is_custom: true,
         });
         self.save_config();
         self.sync_tray_icon();
-        self.set_transient_status(format!("Added {name}"));
+        self.set_transient_status(format!("Added {}", validated.name));
         self.sync_all_ui(webview, tray_webview, main_visible);
     }
 
@@ -1047,6 +943,15 @@ impl AppState {
                 self.config.dark_mode = value;
                 self.save_config();
             }
+            "soundEffects" => {
+                self.config.sound_effects = value;
+                self.save_config();
+                self.set_transient_status(if value {
+                    "UI sounds enabled"
+                } else {
+                    "UI sounds disabled"
+                });
+            }
             "enableIpv6" => {
                 self.config.enable_ipv6 = value;
                 self.save_config();
@@ -1133,6 +1038,33 @@ impl AppState {
         self.sync_tray_webview(tray_webview, false);
     }
 
+    fn open_tray_popup(
+        &mut self,
+        window: &Window,
+        tray_window: &Window,
+        tray_webview: &WebView,
+        click_x: i32,
+        click_y: i32,
+    ) {
+        let main_visible = is_main_effectively_visible(window);
+        let exact_h = self.tray_logical_height(main_visible);
+        self.last_tray_logical_height = exact_h;
+        self.sync_tray_webview(tray_webview, main_visible);
+        let (ax, ay) = resolve_tray_anchor(click_x, click_y);
+        self.last_tray_anchor = Some((ax, ay));
+        position_tray_window(tray_window, ax, ay, exact_h);
+        configure_window_dwm(tray_window, true, self.config.dark_mode);
+        ensure_tray_topmost(tray_window);
+        self.tray_opened_at = Some(Instant::now());
+        self.tray_blur_closed_at = None;
+        tray_window.set_visible(true);
+        tray_window.set_focus();
+        focus_window(tray_window);
+        ensure_tray_topmost(tray_window);
+        let _ = tray_webview
+            .evaluate_script("window.__shiftdnsTrayOpen && window.__shiftdnsTrayOpen();");
+    }
+
     fn close_tray_popup(&mut self, tray_window: &Window, tray_webview: &WebView, by_blur: bool) {
         self.tray_opened_at = None;
         self.tray_blur_closed_at = if by_blur {
@@ -1168,7 +1100,7 @@ fn format_active_dns_status(profiles: &[DnsProfile], active_id: Option<&str>) ->
 }
 
 fn main() {
-    let _instance_guard = match acquire_single_instance() {
+    let _instance_guard = match acquire_single_instance(WINDOW_TITLE) {
         Some(guard) => guard,
         None => return,
     };
@@ -1363,29 +1295,12 @@ fn main() {
                             if tray_window.is_visible() || just_closed_by_blur {
                                 state.close_tray_popup(&tray_window, &tray_webview, false);
                             } else {
-                                let main_visible = is_main_effectively_visible(&window);
-                                let exact_h = state.tray_logical_height(main_visible);
-                                state.last_tray_logical_height = exact_h;
-                                state.sync_tray_webview(&tray_webview, main_visible);
-                                let (ax, ay) = resolve_tray_anchor(
+                                state.open_tray_popup(
+                                    &window,
+                                    &tray_window,
+                                    &tray_webview,
                                     position.x.round() as i32,
                                     position.y.round() as i32,
-                                );
-                                state.last_tray_anchor = Some((ax, ay));
-                                tray_window
-                                    .set_inner_size(LogicalSize::new(TRAY_POPUP_WIDTH, exact_h));
-                                position_tray_window(&tray_window, ax, ay, exact_h);
-                                configure_window_dwm(&tray_window, true, state.config.dark_mode);
-                                ensure_tray_topmost(&tray_window);
-                                state.tray_opened_at = Some(Instant::now());
-                                state.tray_blur_closed_at = None;
-                                tray_window.set_visible(true);
-                                tray_window.set_focus();
-                                #[cfg(target_os = "windows")]
-                                focus_hwnd(tray_window.hwnd() as HWND);
-                                ensure_tray_topmost(&tray_window);
-                                let _ = tray_webview.evaluate_script(
-                                    "window.__shiftdnsTrayOpen && window.__shiftdnsTrayOpen();",
                                 );
                             }
                         }
@@ -1434,7 +1349,7 @@ fn main() {
                                 state.reset_defaults(&webview, &tray_webview, main_visible);
                             }
                             IpcMessage::ProbeActive => {
-                                state.spawn_active_probe();
+                                state.spawn_active_probe(true);
                                 state.sync_webview(&webview);
                             }
                             IpcMessage::CycleAdapter => {
@@ -1452,6 +1367,20 @@ fn main() {
                                     configure_window_dwm(&window, true, state.config.dark_mode);
                                     configure_window_dwm(&tray_window, true, state.config.dark_mode);
                                 }
+                            }
+                            IpcMessage::SetResolveDomain { domain } => {
+                                state.set_resolve_domain(&domain, &webview);
+                            }
+                            IpcMessage::CheckUpdate => {
+                                state.check_for_updates(&webview);
+                            }
+                            IpcMessage::OpenReleaseUrl { url } => {
+                                match open_release_url(&url) {
+                                    Ok(()) => state
+                                        .set_transient_status("Opening ShiftDNS-Setup.exe download..."),
+                                    Err(err) => state.set_error_status(err),
+                                }
+                                state.sync_webview(&webview);
                             }
                             IpcMessage::DragWindow => {
                                 let _ = window.drag_window();
@@ -1486,7 +1415,7 @@ fn main() {
                                 state.close_tray_popup(&tray_window, &tray_webview, false);
                             }
                             TrayIpcMessage::Resize { height } => {
-                                let clamped = height.clamp(85.0, 340.0);
+                                let clamped = height.clamp(TRAY_MIN_HEIGHT, TRAY_MAX_HEIGHT);
                                 if (clamped - state.last_tray_logical_height).abs() >= 1.0 {
                                     state.last_tray_logical_height = clamped;
                                     tray_window
@@ -1541,8 +1470,7 @@ fn main() {
                         state.adapters = adapters;
                         if target_present && detected_active_id != state.config.active_profile_id {
                             state.config.active_profile_id = detected_active_id;
-                            state.active_latency = None;
-                            state.probing_active = false;
+                            state.clear_active_probe_state();
                             state.save_config();
                             if state.status_revert_at.is_none() {
                                 state.status_message = format_active_dns_status(
@@ -1556,7 +1484,7 @@ fn main() {
                             && state.config.active_profile_id.is_some()
                             && !state.probing_active
                         {
-                            state.spawn_active_probe();
+                            state.spawn_active_probe(false);
                         }
                         state.sync_all_ui(
                             &webview,
@@ -1593,10 +1521,9 @@ fn main() {
                                             "Applied {name} · Cache flushed"
                                         ));
                                     }
-                                    state.spawn_active_probe();
+                                    state.spawn_active_probe(false);
                                 } else {
-                                    state.probing_active = false;
-                                    state.active_latency = None;
+                                    state.clear_active_probe_state();
                                     if !state.status_is_error {
                                         state.set_transient_status("Restored DHCP · Cache flushed");
                                     }
@@ -1611,8 +1538,7 @@ fn main() {
                                     );
                                     state.save_config();
                                 }
-                                state.probing_active = false;
-                                state.active_latency = None;
+                                state.clear_active_probe_state();
                                 state.sync_tray_icon();
                                 state.set_error_status(err);
                             }
@@ -1648,13 +1574,74 @@ fn main() {
                         is_main_effectively_visible(&window),
                     );
                 }
-                UserEvent::ProbeResult { gen, rtt } => {
+                UserEvent::ProbeResult {
+                    gen,
+                    result,
+                    manual,
+                } => {
                     if gen == state.probe_generation {
                         state.probing_active = false;
-                        state.active_latency = Some(rtt);
+                        state.active_latency = Some(result.rtt_ms);
+                        state.active_resolve_status = Some(result.status);
+                        state.active_resolved_ip = result.resolved_ip.clone();
+                        let domain = state.config.resolve_check_domain.clone();
+                        match result.status {
+                            ResolveStatus::Blocked => {
+                                let ip = result.resolved_ip.as_deref().unwrap_or("0.0.0.0");
+                                state.set_transient_status(format!("Blocked: {domain} → {ip}"));
+                            }
+                            ResolveStatus::Ok if manual => {
+                                if let (Some(ip), Some(ms)) = (result.resolved_ip.as_deref(), result.rtt_ms) {
+                                    state.set_transient_status(format!("{domain} → {ip} ({ms} ms)"));
+                                }
+                            }
+                            ResolveStatus::NoAnswer if manual => {
+                                state.set_transient_status(format!("No A record for {domain}"));
+                            }
+                            ResolveStatus::Timeout if manual => {
+                                state.set_transient_status(format!("Timeout resolving {domain}"));
+                            }
+                            _ => {}
+                        }
                         state.sync_tray_icon();
                         state.sync_webview(&webview);
                     }
+                }
+                UserEvent::UpdateCheckFinished { outcome } => {
+                    state.update_checking = false;
+                    match outcome {
+                        UpdateCheckOutcome::UpToDate { current_version } => {
+                            state.update_state = UpdateUiState {
+                                status: "up_to_date",
+                                latest_version: Some(current_version.clone()),
+                                download_url: None,
+                                message: Some(format!("Up to date ({current_version})")),
+                            };
+                            state.set_transient_status(format!("Up to date ({current_version})"));
+                        }
+                        UpdateCheckOutcome::Available {
+                            latest_version,
+                            download_url,
+                        } => {
+                            state.update_state = UpdateUiState {
+                                status: "available",
+                                latest_version: Some(latest_version.clone()),
+                                download_url: Some(download_url),
+                                message: Some(format!("Update {latest_version} available")),
+                            };
+                            state.set_transient_status(format!("Update {latest_version} available"));
+                        }
+                        UpdateCheckOutcome::Error(msg) => {
+                            state.update_state = UpdateUiState {
+                                status: "error",
+                                latest_version: None,
+                                download_url: None,
+                                message: Some(msg.clone()),
+                            };
+                            state.set_transient_status(msg);
+                        }
+                    }
+                    state.sync_webview(&webview);
                 }
             },
             _ => {}

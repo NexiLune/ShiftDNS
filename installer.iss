@@ -1,6 +1,6 @@
 [Setup]
 AppName=ShiftDNS
-AppVersion=1.0.0
+AppVersion=1.1.0
 AppPublisher=ShiftDNS
 DefaultDirName={autopf}\ShiftDNS
 DefaultGroupName=ShiftDNS
@@ -41,5 +41,3 @@ begin
   Sleep(400);
   Result := '';
 end;
-
-

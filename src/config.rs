@@ -23,6 +23,43 @@ pub struct DnsProfile {
     pub is_custom: bool,
 }
 
+pub const DEFAULT_RESOLVE_CHECK_DOMAIN: &str = "cloudflare.com";
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_resolve_check_domain() -> String {
+    DEFAULT_RESOLVE_CHECK_DOMAIN.to_string()
+}
+
+pub fn normalize_hostname(domain: &str) -> String {
+    domain.trim().trim_end_matches('.').to_ascii_lowercase()
+}
+
+pub fn is_valid_hostname(domain: &str) -> bool {
+    let clean = normalize_hostname(domain);
+    if clean.is_empty() || clean.len() > 253 || !clean.contains('.') {
+        return false;
+    }
+    if clean.parse::<std::net::Ipv4Addr>().is_ok() {
+        return false;
+    }
+    let labels: Vec<&str> = clean.split('.').collect();
+    if labels.len() < 2 {
+        return false;
+    }
+    labels.iter().all(|label| {
+        !label.is_empty()
+            && label.len() <= 63
+            && !label.starts_with('-')
+            && !label.ends_with('-')
+            && label
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+    })
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub selected_adapter: Option<String>,
@@ -32,6 +69,10 @@ pub struct AppConfig {
     pub start_minimized: bool,
     pub launch_at_startup: bool,
     pub dark_mode: bool,
+    #[serde(default = "default_true")]
+    pub sound_effects: bool,
+    #[serde(default = "default_resolve_check_domain")]
+    pub resolve_check_domain: String,
     #[serde(default)]
     pub usage_counts: HashMap<String, u32>,
     pub profiles: Vec<DnsProfile>,
@@ -47,6 +88,8 @@ impl Default for AppConfig {
             start_minimized: false,
             launch_at_startup: false,
             dark_mode: true,
+            sound_effects: true,
+            resolve_check_domain: default_resolve_check_domain(),
             usage_counts: HashMap::new(),
             profiles: default_profiles(),
         }
@@ -277,6 +320,11 @@ impl AppConfig {
                     if clean.is_empty() || clean.chars().any(|c| c.is_control()) {
                         parsed.selected_adapter = None;
                     }
+                }
+                if is_valid_hostname(&parsed.resolve_check_domain) {
+                    parsed.resolve_check_domain = normalize_hostname(&parsed.resolve_check_domain);
+                } else {
+                    parsed.resolve_check_domain = default_resolve_check_domain();
                 }
                 return parsed;
             }

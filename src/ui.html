@@ -35,7 +35,12 @@
     --input-bg: #15181E;
     --input-focus-bg: #181C24;
     --input-border: rgba(255, 255, 255, 0.08);
+    --input-focus-border: rgba(16, 185, 129, 0.6);
     --input-placeholder: #64748B;
+    --chevron-color: #64748B;
+    --restore-hover-bg: #15181E;
+    --empty-btn-bg: #15181E;
+    --empty-btn-hover: #1C2028;
     --checkbox-border: rgba(255, 255, 255, 0.25);
     --shield-fill: rgba(255, 255, 255, 0.1);
     --kb-ring: rgba(255, 255, 255, 0.25);
@@ -69,7 +74,12 @@
     --input-bg: #F6F7F9;
     --input-focus-bg: #FFFFFF;
     --input-border: rgba(23, 23, 23, 0.08);
+    --input-focus-border: rgba(5, 150, 105, 0.6);
     --input-placeholder: #9CA3AF;
+    --chevron-color: #9CA3AF;
+    --restore-hover-bg: #F3F4F6;
+    --empty-btn-bg: #F4F4F5;
+    --empty-btn-hover: #E5E5E7;
     --checkbox-border: rgba(23, 23, 23, 0.28);
     --shield-fill: rgba(23, 23, 23, 0.08);
     --kb-ring: rgba(23, 23, 23, 0.2);
@@ -138,7 +148,8 @@
   html.suspend-hover .dns-row:hover .row-actions { opacity: 0; pointer-events: none; }
   html.suspend-hover .dns-row:hover .row-status { opacity: 1; pointer-events: auto; }
   html.suspend-hover .settings-add-row:hover,
-  html.suspend-hover .settings-check-row:hover { background: transparent; }
+  html.suspend-hover .settings-check-row:hover,
+  html.suspend-hover .settings-update-row:hover { background: transparent; }
   html.suspend-hover .restore-btn:hover { color: var(--text-soft); background: transparent; }
   html.suspend-hover .adapter-pill:hover { background: transparent; }
   html.suspend-hover .adapter-pill:hover .adapter-text { color: var(--text-soft); }
@@ -307,7 +318,7 @@
     transform: scale(0.8);
   }
 
-  /* Minimal Smooth Scroll Containers (DNS List = DHCP + 3 rows, Settings, Add DNS Form) */
+  /* Minimal Smooth Scroll Containers (DNS List = 416px matching preview, Settings, Add DNS Form) */
   .dns-list,
   .settings-scroll,
   .form-scroll {
@@ -318,7 +329,7 @@
     overflow-x: hidden;
     overscroll-behavior: contain;
     scroll-behavior: smooth;
-    padding-bottom: 0;
+    padding-bottom: 16px;
   }
 
   .settings-scroll {
@@ -383,8 +394,8 @@
   .dns-row {
     position: relative;
     width: 100%;
-    height: 51px;
-    min-height: 51px;
+    height: 56px;
+    min-height: 56px;
     box-sizing: border-box;
     display: flex;
     align-items: center;
@@ -396,8 +407,8 @@
 
   .dns-row.last-row {
     border-bottom: 0;
-    height: 50px;
-    min-height: 50px;
+    height: 55px;
+    min-height: 55px;
   }
   .dns-row.active { background: var(--active-bg); }
   .dns-row:not(.active):hover { background: var(--hover-bg); }
@@ -453,7 +464,7 @@
   .dhcp-btn {
     width: 100%;
     height: 100%;
-    padding: 7px 16px 7px 20px;
+    padding: 10px 16px 10px 20px;
     border: 0;
     background: transparent;
     color: inherit;
@@ -471,7 +482,7 @@
     flex: 1;
     min-width: 0;
     height: 100%;
-    padding: 7px 8px 7px 20px;
+    padding: 10px 8px 10px 20px;
     border: 0;
     background: transparent;
     color: inherit;
@@ -514,7 +525,7 @@
 
   .row-name {
     font-size: 13px;
-    line-height: 18px;
+    line-height: 19.5px;
     font-weight: 500;
     color: var(--text);
     white-space: nowrap;
@@ -539,7 +550,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-top: 1px;
   }
 
   .row-right {
@@ -612,7 +622,6 @@
     background: var(--action-hover-bg);
   }
 
-  .action-btn.delete:hover { color: #ef4444; }
   .action-btn svg { width: 14px; height: 14px; }
 
   .ping-btn {
@@ -659,15 +668,15 @@
     padding: 0 12px;
     border: 0;
     border-radius: 8px;
-    background: var(--input-bg);
+    background: var(--empty-btn-bg);
     color: var(--text);
     font-family: inherit;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
   }
-  .empty-restore-btn:hover { background: var(--action-hover-bg); }
-  .empty-restore-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .empty-restore-btn:hover { background: var(--empty-btn-hover); }
+  .empty-restore-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
 
   /* Settings View */
   .settings-add-row {
@@ -698,7 +707,7 @@
   }
 
   .settings-add-left svg { width: 16px; height: 16px; color: var(--text-soft); }
-  .settings-chevron { width: 14px; height: 14px; color: var(--text-sub); }
+  .settings-chevron { width: 14px; height: 14px; color: var(--chevron-color); }
 
   .settings-check-row {
     padding: 12px 16px;
@@ -745,6 +754,147 @@
 
   .custom-checkbox svg { width: 12px; height: 12px; color: #FFFFFF; }
 
+  .settings-domain-row {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .settings-domain-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .settings-domain-label {
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .settings-domain-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .settings-domain-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .settings-domain-input {
+    flex: 1;
+    min-width: 0;
+    height: 28px;
+    padding: 0 9px;
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    background: var(--input-bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+
+  .settings-domain-input:focus {
+    outline: none;
+    border-color: var(--input-focus-border);
+    background: var(--input-focus-bg);
+  }
+
+  .settings-domain-btn {
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    background: var(--empty-btn-bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background-color 150ms ease;
+  }
+
+  .settings-domain-btn:hover { background: var(--empty-btn-hover); }
+
+  .settings-update-row {
+    width: 100%;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    transition: background-color 150ms ease;
+  }
+
+  .settings-update-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .settings-update-btn:disabled {
+    cursor: default;
+    opacity: 0.72;
+  }
+
+  .settings-update-btn svg {
+    width: 15px;
+    height: 15px;
+    color: var(--text-soft);
+    flex-shrink: 0;
+  }
+
+  .settings-update-meta {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 170px;
+  }
+
+  .settings-update-meta.ok { color: var(--fast); }
+  .settings-update-meta.err { color: var(--timeout); }
+
+  .settings-download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 9px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--accent-btn-text);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background-color 150ms ease;
+  }
+
+  .settings-download-btn:hover { background: var(--accent-hover); }
+  .settings-download-btn svg { width: 12px; height: 12px; }
+
   .settings-footer-action {
     padding: 12px 16px;
     display: flex;
@@ -771,13 +921,13 @@
 
   .restore-btn:hover {
     color: var(--text);
-    background: var(--icon-hover-bg);
+    background: var(--restore-hover-bg);
   }
   .restore-btn svg { width: 16px; height: 16px; }
 
   /* Add / Edit DNS Inline Form */
   .dns-form {
-    padding: 10px 14px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -841,7 +991,7 @@
 
   .field-input:focus, .field-select:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: var(--input-focus-border);
     background: var(--input-focus-bg);
   }
 
@@ -940,7 +1090,7 @@
     min-width: 0;
     max-width: 55%;
     flex-shrink: 1;
-    padding: 3px 6px;
+    padding: 2px 6px;
     margin-left: -6px;
     border: 0;
     border-radius: 6px;
@@ -1055,26 +1205,94 @@
     rotateCcw: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`,
     pencil: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`,
     trash2: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
-    grip: `<svg class="grip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>`
+    grip: `<svg class="grip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>`,
+    download: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
+    refresh: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>`
   };
 
   const DHCP_ID = '__dhcp__';
   const CATEGORIES = ['Custom', 'Privacy', 'Ad-Block', 'Security', 'Speed', 'Family'];
 
   const appState = {
+    appVersion: '1.0.0',
     profiles: [],
     activeProfileId: null,
     darkMode: true,
+    soundEffects: true,
     enableIpv6: true,
     enableDoh: false,
     startMinimized: false,
     launchAtStartup: false,
+    resolveCheckDomain: 'cloudflare.com',
     adapterLabel: 'Auto (Wi-Fi) · Admin',
     activeLatency: undefined, // undefined = not probed, null = timeout, number = ms
+    activeResolveStatus: null, // 'ok' | 'blocked' | 'no_answer' | 'timeout' | null
+    activeResolvedIp: null,
     probingActive: false,
+    updateState: { status: 'idle', latestVersion: null, downloadUrl: null, message: null },
     statusMessage: 'System Default (DHCP)',
     statusIsError: false,
   };
+
+  const SOUND_RECIPES = {
+    activate: [
+      { type: 'sine', f0: 494, f1: 523.25, delay: 0, dur: 0.065, gain: 0.06 },
+      { type: 'sine', f0: 783.99, delay: 0.048, dur: 0.135, gain: 0.055 },
+      { type: 'sine', f0: 1567.98, delay: 0.048, dur: 0.075, gain: 0.015 },
+    ],
+    dhcp: [
+      { type: 'sine', f0: 587.33, f1: 523.25, delay: 0, dur: 0.065, gain: 0.055 },
+      { type: 'sine', f0: 440, f1: 392, delay: 0.048, dur: 0.125, gain: 0.05 },
+    ],
+    toggleOn: [{ type: 'triangle', f0: 620, f1: 880, delay: 0, dur: 0.042, gain: 0.055 }],
+    toggleOff: [{ type: 'triangle', f0: 560, f1: 390, delay: 0, dur: 0.042, gain: 0.045 }],
+    click: [{ type: 'sine', f0: 920, f1: 510, delay: 0, dur: 0.026, gain: 0.04 }],
+    save: [
+      { type: 'sine', f0: 523.25, delay: 0, dur: 0.075, gain: 0.045 },
+      { type: 'sine', f0: 659.25, delay: 0.042, dur: 0.085, gain: 0.048 },
+      { type: 'sine', f0: 783.99, delay: 0.084, dur: 0.135, gain: 0.055 },
+    ],
+    delete: [{ type: 'triangle', f0: 320, f1: 175, delay: 0, dur: 0.075, gain: 0.055 }],
+    error: [
+      { type: 'triangle', f0: 230, f1: 195, delay: 0, dur: 0.05, gain: 0.05 },
+      { type: 'triangle', f0: 205, f1: 170, delay: 0.068, dur: 0.06, gain: 0.045 },
+    ],
+  };
+
+  let audioCtx = null;
+  function playSound(cue, forceEnabled) {
+    if (!(forceEnabled === undefined ? appState.soundEffects : forceEnabled)) return;
+    const steps = SOUND_RECIPES[cue];
+    if (!steps) return;
+    try {
+      const Ctor = window.AudioContext || window.webkitAudioContext;
+      if (!Ctor) return;
+      if (!audioCtx) audioCtx = new Ctor();
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(3800, audioCtx.currentTime);
+      filter.connect(audioCtx.destination);
+      const base = audioCtx.currentTime + 0.002;
+      for (const s of steps) {
+        const start = base + s.delay;
+        const end = start + s.dur;
+        const atk = Math.min(0.004, s.dur * 0.25);
+        const osc = audioCtx.createOscillator();
+        osc.type = s.type;
+        osc.frequency.setValueAtTime(s.f0, start);
+        if (s.f1 && s.f1 !== s.f0) osc.frequency.exponentialRampToValueAtTime(s.f1, end);
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.linearRampToValueAtTime(s.gain, start + atk);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+        osc.connect(gain);
+        gain.connect(filter);
+        osc.start(start);
+        osc.stop(end + 0.008);
+      }
+    } catch {}
+  }
 
   let viewMode = 'servers'; // 'servers' | 'settings' | 'add-dns'
   let formReturnView = 'servers';
@@ -1100,23 +1318,41 @@
       .replace(/"/g, '&quot;');
   }
 
-  function pinActiveFirst(profiles, activeId) {
-    if (!activeId) return profiles;
-    const idx = profiles.findIndex((p) => p.id === activeId);
-    if (idx <= 0) return profiles;
-    return [profiles[idx], ...profiles.slice(0, idx), ...profiles.slice(idx + 1)];
-  }
-
   function formatCategory(cat) {
     return cat === 'Ad-Block' ? 'Ad-block' : cat;
   }
 
-  function latencyInfo(ms, probing) {
-    if (probing || ms === undefined) return { text: '...', cls: 'ping-none' };
-    if (ms === null) return { text: 'Timeout', cls: 'ping-timeout' };
-    if (ms <= 18) return { text: `${ms} ms`, cls: 'ping-fast' };
-    if (ms <= 27) return { text: `${ms} ms`, cls: 'ping-medium' };
-    return { text: `${ms} ms`, cls: 'ping-slow' };
+  function latencyInfo(ms, probing, resolveStatus, resolvedIp, domain) {
+    const host = domain || 'cloudflare.com';
+    if (probing || ms === undefined) {
+      return { text: '...', cls: 'ping-none', title: `Testing ${host} (port 53)...` };
+    }
+    if (ms === null || resolveStatus === 'timeout') {
+      return {
+        text: 'Timeout',
+        cls: 'ping-timeout',
+        title: `Timeout resolving ${host} · Click to retest`,
+      };
+    }
+    if (resolveStatus === 'blocked') {
+      return {
+        text: 'Blocked',
+        cls: 'ping-timeout',
+        title: `Blocked: ${host} → ${resolvedIp || '0.0.0.0'} · Click to retest`,
+      };
+    }
+    if (resolveStatus === 'no_answer') {
+      return {
+        text: 'No IP',
+        cls: 'ping-slow',
+        title: `No A record for ${host} · Click to retest`,
+      };
+    }
+    const cls = ms <= 18 ? 'ping-fast' : ms <= 27 ? 'ping-medium' : 'ping-slow';
+    const title = resolvedIp
+      ? `${host} → ${resolvedIp} · Click to retest`
+      : `Click to retest ${host} (port 53)`;
+    return { text: `${ms} ms`, cls, title };
   }
 
   function applyTheme() {
@@ -1264,12 +1500,14 @@
     if (viewMode === 'settings') {
       left.innerHTML = `<button type="button" class="back-btn" id="btn-back" aria-label="Back to DNS servers">${ICONS.arrowLeft}<span>Settings</span></button>`;
       document.getElementById('btn-back').onclick = () => {
+        playSound('click');
         transitionView('servers');
       };
     } else if (viewMode === 'add-dns') {
       const label = editingProfile ? 'Edit DNS' : 'Add DNS';
       left.innerHTML = `<button type="button" class="back-btn" id="btn-back" aria-label="Back to DNS servers">${ICONS.arrowLeft}<span>${label}</span></button>`;
       document.getElementById('btn-back').onclick = () => {
+        playSound('click');
         const target = formReturnView;
         transitionView(target, () => {
           editingProfile = null;
@@ -1292,13 +1530,16 @@
 
     if (viewMode === 'servers') {
       addControl('btn-settings', 'Settings', 'Settings', ICONS.settings, false, () => {
+        playSound('click');
         transitionView('settings');
       });
     }
     addControl('btn-min', 'Minimize ShiftDNS window to system tray', 'Minimize to tray', ICONS.minus, true, () => {
+      playSound('click');
       animateHideAndPost();
     });
     addControl('btn-close', 'Close ShiftDNS window to system tray', 'Close to tray (Esc)', ICONS.x, true, () => {
+      playSound('click');
       animateHideAndPost();
     });
   }
@@ -1368,13 +1609,9 @@
     const prevList = document.getElementById('dns-list');
     const prevScroll = prevList ? prevList.scrollTop : 0;
 
-    // Capture FLIP geometry before updating servers view
-    const prevRowTops = new Map();
+    // Capture active indicator position so the green bar glides smoothly to the newly selected row
     let prevBarTop = null;
     if (prevList && viewMode === 'servers') {
-      prevList.querySelectorAll('.dns-row[data-nav-id]').forEach((el) => {
-        prevRowTops.set(el.dataset.navId, el.getBoundingClientRect().top);
-      });
       const prevBar = prevList.querySelector('.active-bar');
       if (prevBar) prevBarTop = prevBar.getBoundingClientRect().top;
     }
@@ -1384,7 +1621,7 @@
     } else if (viewMode === 'add-dns') {
       renderFormView(main, animateView);
     } else {
-      renderServersView(main, animateView, prevScroll, prevRowTops, prevBarTop);
+      renderServersView(main, animateView, prevScroll, prevBarTop);
     }
   }
 
@@ -1430,8 +1667,8 @@
     setTimeout(sync, 170);
   }
 
-  function renderServersView(main, animateView, prevScroll, prevRowTops, prevBarTop) {
-    const visible = pinActiveFirst(appState.profiles, appState.activeProfileId);
+  function renderServersView(main, animateView, prevScroll, prevBarTop) {
+    const visible = appState.profiles;
     const activeChanged = appState.activeProfileId !== lastActiveProfileId;
     lastActiveProfileId = appState.activeProfileId;
 
@@ -1458,6 +1695,7 @@
     `;
     dhcpRow.querySelector('button').onclick = () => {
       focusedNavId = null;
+      playSound('dhcp');
       postIpc({ type: 'activateProfile', id: null });
     };
     list.appendChild(dhcpRow);
@@ -1466,14 +1704,25 @@
       const empty = document.createElement('div');
       empty.className = 'empty-state';
       empty.innerHTML = `<p>No DNS servers in list</p><button type="button" class="empty-restore-btn" id="btn-empty-restore">${ICONS.rotateCcw}<span>Restore defaults</span></button>`;
-      empty.querySelector('#btn-empty-restore').onclick = () => postIpc({ type: 'resetDefaults' });
+      empty.querySelector('#btn-empty-restore').onclick = () => {
+        playSound('save');
+        postIpc({ type: 'resetDefaults' });
+      };
       list.appendChild(empty);
     } else {
       visible.forEach((p, idx) => {
         const isActive = appState.activeProfileId === p.id;
         const isLast = idx === visible.length - 1;
         const ips = p.secondary_v4 ? `${p.primary_v4} · ${p.secondary_v4}` : p.primary_v4;
-        const lat = isActive ? latencyInfo(appState.activeLatency, appState.probingActive) : null;
+        const lat = isActive
+          ? latencyInfo(
+              appState.activeLatency,
+              appState.probingActive,
+              appState.activeResolveStatus,
+              appState.activeResolvedIp,
+              appState.resolveCheckDomain
+            )
+          : null;
 
         const row = document.createElement('div');
         row.className = `dns-row ${isActive ? 'active' : ''} ${isLast ? 'last-row' : ''} ${focusedNavId === p.id ? 'kb-focused' : ''}`;
@@ -1499,7 +1748,7 @@
             </div>
             ${isActive ? `
               <div class="row-status">
-                <button type="button" class="ping-btn ${lat.cls}" title="Click to retest DNS latency (port 53)" aria-label="Retest ${escHtml(p.name)} latency">${escHtml(lat.text)}</button>
+                <button type="button" class="ping-btn ${lat.cls}" title="${escHtml(lat.title)}" aria-label="${escHtml(lat.title)}">${escHtml(lat.text)}</button>
                 <span class="check-badge ${activeChanged ? 'check-pre-enter' : ''}">${ICONS.check}</span>
               </div>
             ` : ''}
@@ -1516,21 +1765,25 @@
             return;
           }
           focusedNavId = null;
+          playSound('activate');
           postIpc({ type: 'activateProfile', id: p.id });
         });
 
         row.querySelector('.action-btn.edit').onclick = (ev) => {
           ev.stopPropagation();
+          playSound('click');
           openEditForm(p);
         };
         row.querySelector('.action-btn.delete').onclick = (ev) => {
           ev.stopPropagation();
+          playSound('delete');
           postIpc({ type: 'deleteProfile', id: p.id });
         };
         const pingBtn = row.querySelector('.ping-btn');
         if (pingBtn) {
           pingBtn.onclick = (ev) => {
             ev.stopPropagation();
+            playSound('click');
             postIpc({ type: 'probeActive' });
           };
         }
@@ -1541,7 +1794,11 @@
 
     wrap.appendChild(list);
     mountViewPanel(main, wrap, animateView);
-    list.scrollTop = prevScroll;
+    if (prevScroll > 0) {
+      list.style.scrollBehavior = 'auto';
+      list.scrollTop = prevScroll;
+      list.style.scrollBehavior = '';
+    }
     attachScrollFade(list);
 
     if (activeChanged) {
@@ -1552,32 +1809,14 @@
       }
     }
 
-    if (activeChanged && appState.activeProfileId) {
-      list.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    // Play FLIP spring animations for moved rows and active indicator bar
-    if (!animateView && prevRowTops && prevRowTops.size > 0) {
-      const springTiming = { duration: 280, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' };
-      list.querySelectorAll('.dns-row[data-nav-id]').forEach((el) => {
-        const prevTop = prevRowTops.get(el.dataset.navId);
-        if (prevTop === undefined) return;
-        const dy = prevTop - el.getBoundingClientRect().top;
-        if (Math.abs(dy) >= 1 && typeof el.animate === 'function') {
-          el.animate(
-            [{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }],
-            springTiming
-          );
-        }
-      });
-
+    if (!animateView && prevBarTop !== null && activeChanged) {
       const nextBar = list.querySelector('.active-bar');
-      if (nextBar && prevBarTop !== null && activeChanged && typeof nextBar.animate === 'function') {
+      if (nextBar && typeof nextBar.animate === 'function') {
         const barDy = prevBarTop - nextBar.getBoundingClientRect().top;
         if (Math.abs(barDy) >= 1) {
           nextBar.animate(
             [{ transform: `translateY(${barDy}px)` }, { transform: 'translateY(0)' }],
-            springTiming
+            { duration: 280, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
           );
         }
       }
@@ -1748,6 +1987,7 @@
           if (nextProfiles.length === appState.profiles.length) {
             appState.profiles = nextProfiles;
           }
+          playSound('click');
           postIpc({ type: 'reorderProfiles', orderedIds });
         }
 
@@ -1779,6 +2019,43 @@
     window.addEventListener('pointercancel', onCancel);
   }
 
+  function isValidHostname(domain) {
+    const clean = String(domain || '').trim().replace(/\.$/, '');
+    if (!clean || clean.length > 253 || !clean.includes('.') || isValidIpv4(clean)) return false;
+    const labels = clean.split('.');
+    return (
+      labels.length >= 2 &&
+      labels.every(
+        (l) => l.length >= 1 && l.length <= 63 && /^[a-zA-Z0-9-]+$/.test(l) && !l.startsWith('-') && !l.endsWith('-')
+      )
+    );
+  }
+
+  function renderUpdateRightSlot(container) {
+    if (!container) return;
+    const u = appState.updateState || { status: 'idle' };
+    if (u.status === 'available' && u.downloadUrl) {
+      container.innerHTML = `<button type="button" class="settings-download-btn" id="settings-download-update" title="Download ShiftDNS-Setup.exe">${ICONS.download}<span>Download ${escHtml(u.latestVersion || 'update')}</span></button>`;
+      const dlBtn = container.querySelector('#settings-download-update');
+      if (dlBtn) {
+        dlBtn.onclick = () => {
+          playSound('click');
+          postIpc({ type: 'openReleaseUrl', url: u.downloadUrl });
+        };
+      }
+      return;
+    }
+    if (u.status === 'checking') {
+      container.innerHTML = `<span class="settings-update-meta">Checking...</span>`;
+    } else if (u.status === 'up_to_date') {
+      container.innerHTML = `<span class="settings-update-meta ok">Up to date</span>`;
+    } else if (u.status === 'error') {
+      container.innerHTML = `<span class="settings-update-meta err" title="${escHtml(u.message || 'Check failed')}">${escHtml(u.message || 'Check failed')}</span>`;
+    } else {
+      container.innerHTML = `<span class="settings-update-meta">v${escHtml(appState.appVersion || '1.0.0')}</span>`;
+    }
+  }
+
   function renderSettingsView(main, animateView) {
     const prevSettingsEl = document.querySelector('.settings-scroll');
     const prevScroll = prevSettingsEl ? prevSettingsEl.scrollTop : 0;
@@ -1786,11 +2063,14 @@
 
     const items = [
       { key: 'darkMode', checked: appState.darkMode, label: 'Use dark theme' },
+      { key: 'soundEffects', checked: appState.soundEffects, label: 'Play subtle UI sounds' },
       { key: 'enableIpv6', checked: appState.enableIpv6, label: 'Apply IPv6 DNS alongside IPv4' },
       { key: 'enableDoh', checked: appState.enableDoh, label: 'Enable Windows 11 DNS-over-HTTPS (DoH)' },
       { key: 'startMinimized', checked: appState.startMinimized, label: 'Start minimized in system tray' },
       { key: 'launchAtStartup', checked: appState.launchAtStartup, label: 'Launch at Windows sign-in' },
     ];
+
+    const u = appState.updateState || { status: 'idle' };
 
     wrap.innerHTML = `
       <div class="settings-scroll scroll-fade">
@@ -1805,6 +2085,35 @@
             <span>${escHtml(item.label)}</span>
           </label>
         `).join('')}
+        <div class="settings-domain-row">
+          <div class="settings-domain-head">
+            <label for="settings-resolve-domain" class="settings-domain-label">Resolve check domain</label>
+            <span class="settings-domain-hint">Catches 0.0.0.0 / blocked IPs</span>
+          </div>
+          <form class="settings-domain-form" id="settings-domain-form">
+            <input
+              id="settings-resolve-domain"
+              class="settings-domain-input"
+              type="text"
+              value="${escHtml(appState.resolveCheckDomain || 'cloudflare.com')}"
+              placeholder="cloudflare.com"
+              spellcheck="false"
+            />
+            <button type="submit" class="settings-domain-btn">Apply</button>
+          </form>
+        </div>
+        <div class="settings-update-row">
+          <button
+            type="button"
+            class="settings-update-btn"
+            id="settings-check-update"
+            ${u.status === 'checking' ? 'disabled' : ''}
+          >
+            ${ICONS.refresh}
+            <span>Check for updates</span>
+          </button>
+          <div id="settings-update-slot"></div>
+        </div>
         <div class="settings-footer-action">
           <button type="button" class="restore-btn" id="settings-restore-defaults">
             ${ICONS.rotateCcw}
@@ -1814,14 +2123,41 @@
       </div>
     `;
 
-    wrap.querySelector('#settings-add-dns').onclick = () => openAddForm('settings');
+    wrap.querySelector('#settings-add-dns').onclick = () => {
+      playSound('click');
+      openAddForm('settings');
+    };
+    wrap.querySelector('#settings-domain-form').onsubmit = (ev) => {
+      ev.preventDefault();
+      const input = wrap.querySelector('#settings-resolve-domain');
+      const val = input.value.trim();
+      if (!isValidHostname(val)) {
+        playSound('error');
+        postIpc({ type: 'setResolveDomain', domain: val });
+        return;
+      }
+      playSound('save');
+      postIpc({ type: 'setResolveDomain', domain: val });
+    };
+    wrap.querySelector('#settings-check-update').onclick = () => {
+      playSound('click');
+      postIpc({ type: 'checkUpdate' });
+    };
+    renderUpdateRightSlot(wrap.querySelector('#settings-update-slot'));
     wrap.querySelector('#settings-restore-defaults').onclick = () => {
+      playSound('save');
       postIpc({ type: 'resetDefaults' });
       transitionView('servers');
     };
     wrap.querySelectorAll('input[data-setting]').forEach((input) => {
       input.onchange = () => {
-        postIpc({ type: 'toggleSetting', key: input.dataset.setting, value: input.checked });
+        const key = input.dataset.setting;
+        if (key === 'soundEffects') {
+          if (input.checked) playSound('toggleOn', true);
+        } else {
+          playSound(input.checked ? 'toggleOn' : 'toggleOff');
+        }
+        postIpc({ type: 'toggleSetting', key, value: input.checked });
       };
     });
 
@@ -1976,6 +2312,7 @@
     formEl.querySelectorAll('input').forEach((inp) => inp.addEventListener('input', clearErr));
 
     wrap.querySelector('#btn-adv').onclick = () => {
+      playSound('click');
       showAdvanced = !showAdvanced;
       const box = wrap.querySelector('#adv-fields');
       const btn = wrap.querySelector('#btn-adv');
@@ -2007,6 +2344,7 @@
       else if (!isValidDohUrl(payload.doh_template)) err = 'DoH template must be a valid https:// URL.';
 
       if (err) {
+        playSound('error');
         formError = err;
         const errEl = wrap.querySelector('#form-error');
         errEl.textContent = err;
@@ -2015,6 +2353,7 @@
         return;
       }
 
+      playSound('save');
       postIpc({ type: 'saveProfile', profile: payload });
       transitionView('servers', () => {
         editingProfile = null;
@@ -2039,6 +2378,7 @@
 
   // Footer adapter switcher (Auto <-> available adapters)
   document.getElementById('btn-adapter').addEventListener('click', () => {
+    playSound('click');
     postIpc({ type: 'cycleAdapter' });
   });
 
@@ -2065,15 +2405,18 @@
     if (e.key === 'Escape') {
       e.preventDefault();
       if (viewMode === 'add-dns') {
+        playSound('click');
         const target = formReturnView;
         transitionView(target, () => {
           editingProfile = null;
           formError = null;
         });
       } else if (viewMode === 'settings') {
+        playSound('click');
         transitionView('servers');
       } else {
         focusedNavId = null;
+        playSound('click');
         animateHideAndPost();
       }
       return;
@@ -2081,14 +2424,14 @@
 
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'n') {
       e.preventDefault();
+      playSound('click');
       openAddForm('servers');
       return;
     }
 
     if (viewMode !== 'servers' || isInput) return;
 
-    const visible = pinActiveFirst(appState.profiles, appState.activeProfileId);
-    const ids = [DHCP_ID, ...visible.map((p) => p.id)];
+    const ids = [DHCP_ID, ...appState.profiles.map((p) => p.id)];
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       const anchor = focusedNavId || appState.activeProfileId || DHCP_ID;
@@ -2106,6 +2449,7 @@
       e.preventDefault();
       const targetId = focusedNavId === DHCP_ID ? null : focusedNavId;
       focusedNavId = null;
+      playSound(targetId ? 'activate' : 'dhcp');
       postIpc({ type: 'activateProfile', id: targetId });
     }
   });
@@ -2127,6 +2471,7 @@
       if (viewMode === 'settings') {
         const settingMap = {
           darkMode: appState.darkMode,
+          soundEffects: appState.soundEffects,
           enableIpv6: appState.enableIpv6,
           enableDoh: appState.enableDoh,
           startMinimized: appState.startMinimized,
@@ -2143,6 +2488,15 @@
             box.innerHTML = checked ? ICONS.checkSmall : '';
           }
         });
+        const domainInput = document.getElementById('settings-resolve-domain');
+        if (domainInput && document.activeElement !== domainInput && appState.resolveCheckDomain) {
+          domainInput.value = appState.resolveCheckDomain;
+        }
+        const checkBtn = document.getElementById('settings-check-update');
+        if (checkBtn) {
+          checkBtn.disabled = Boolean(appState.updateState && appState.updateState.status === 'checking');
+        }
+        renderUpdateRightSlot(document.getElementById('settings-update-slot'));
       }
     }
   };
