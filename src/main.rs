@@ -28,9 +28,9 @@ use tray::TrayController;
 use tray_icon::{MouseButton, MouseButtonState, TrayIconEvent};
 use win32::{
     acquire_single_instance, compute_tray_logical_height, configure_window_dwm,
-    ensure_tray_topmost, focus_window, open_release_url, position_tray_window,
-    resolve_tray_anchor, MAIN_WINDOW_HEIGHT, MAIN_WINDOW_WIDTH, TRAY_MAX_HEIGHT, TRAY_MIN_HEIGHT,
-    TRAY_POPUP_WIDTH,
+    ensure_tray_topmost, focus_window, minimize_window_cleanly, open_release_url,
+    position_tray_window, resolve_tray_anchor, MAIN_WINDOW_HEIGHT, MAIN_WINDOW_WIDTH,
+    TRAY_MAX_HEIGHT, TRAY_MIN_HEIGHT, TRAY_POPUP_WIDTH,
 };
 use wry::{WebContext, WebView, WebViewBuilder};
 
@@ -111,6 +111,8 @@ enum IpcMessage {
     BeginHide,
     #[serde(rename = "hideWindow")]
     HideWindow,
+    #[serde(rename = "beginMinimize")]
+    BeginMinimize,
     #[serde(rename = "minimizeWindow")]
     MinimizeWindow,
 }
@@ -314,6 +316,7 @@ struct AppState {
     tray_blur_closed_at: Option<Instant>,
     main_target_visible: bool,
     main_hide_deadline: Option<Instant>,
+    pending_hide_to_taskbar: bool,
 }
 
 impl AppState {
@@ -354,6 +357,7 @@ impl AppState {
             tray_blur_closed_at: None,
             main_target_visible,
             main_hide_deadline: None,
+            pending_hide_to_taskbar: false,
         }
     }
 
@@ -1049,13 +1053,18 @@ impl AppState {
     fn show_window(&mut self, window: &Window, webview: &WebView, tray_webview: &WebView) {
         self.main_target_visible = true;
         self.main_hide_deadline = None;
+        self.pending_hide_to_taskbar = false;
         configure_window_dwm(window, true, self.config.dark_mode);
         if self.webview_ready {
             let _ = webview
                 .evaluate_script("window.__shiftdnsPrepareShow && window.__shiftdnsPrepareShow();");
         }
-        window.set_visible(true);
-        window.set_minimized(false);
+        if !window.is_visible() {
+            window.set_visible(true);
+        }
+        if window.is_minimized() {
+            window.set_minimized(false);
+        }
         window.set_focus();
         if self.webview_ready {
             let _ = webview
@@ -1067,6 +1076,7 @@ impl AppState {
 
     fn request_hide_window(&mut self, window: &Window, webview: &WebView, tray_webview: &WebView) {
         self.main_target_visible = false;
+        self.pending_hide_to_taskbar = false;
         if self.webview_ready && window.is_visible() {
             self.main_hide_deadline = Some(Instant::now() + Duration::from_millis(240));
             let _ = webview
@@ -1078,10 +1088,21 @@ impl AppState {
 
     fn finalize_hide_window(&mut self, window: &Window, tray_webview: &WebView) {
         self.main_hide_deadline = None;
+        self.pending_hide_to_taskbar = false;
         if self.main_target_visible {
             return;
         }
         window.set_visible(false);
+        self.sync_tray_webview(tray_webview, false);
+    }
+
+    fn finalize_minimize_window(&mut self, window: &Window, tray_webview: &WebView) {
+        self.main_hide_deadline = None;
+        self.pending_hide_to_taskbar = false;
+        if self.main_target_visible {
+            return;
+        }
+        minimize_window_cleanly(window);
         self.sync_tray_webview(tray_webview, false);
     }
 
@@ -1271,7 +1292,11 @@ fn main() {
             | Event::MainEventsCleared => {
                 if let Some(deadline) = state.main_hide_deadline {
                     if Instant::now() >= deadline {
-                        state.finalize_hide_window(&window, &tray_webview);
+                        if state.pending_hide_to_taskbar {
+                            state.finalize_minimize_window(&window, &tray_webview);
+                        } else {
+                            state.finalize_hide_window(&window, &tray_webview);
+                        }
                     }
                 }
                 if let Some(deadline) = state.status_revert_at {
@@ -1295,7 +1320,7 @@ fn main() {
                             state.request_hide_window(&window, &webview, &tray_webview);
                         }
                         WindowEvent::Focused(true) => {
-                            if window.is_visible() {
+                            if window.is_visible() && !window.is_minimized() {
                                 if !state.main_target_visible && state.main_hide_deadline.is_none() {
                                     state.show_window(&window, &webview, &tray_webview);
                                 } else if state.main_target_visible {
@@ -1305,6 +1330,17 @@ fn main() {
                                         is_main_effectively_visible(&window),
                                     );
                                 }
+                            }
+                        }
+                        WindowEvent::Resized(size) => {
+                            if size.width > 0
+                                && size.height > 0
+                                && window.is_visible()
+                                && !window.is_minimized()
+                                && !state.main_target_visible
+                                && state.main_hide_deadline.is_none()
+                            {
+                                state.show_window(&window, &webview, &tray_webview);
                             }
                         }
                         _ => {}
@@ -1415,6 +1451,13 @@ fn main() {
                                     main_visible,
                                 );
                                 if key == "darkMode" {
+                                    let next_bg = if state.config.dark_mode {
+                                        (14, 16, 18, 255)
+                                    } else {
+                                        (255, 255, 255, 255)
+                                    };
+                                    let _ = webview.set_background_color(next_bg);
+                                    let _ = tray_webview.set_background_color(next_bg);
                                     configure_window_dwm(&window, true, state.config.dark_mode);
                                     configure_window_dwm(&tray_window, true, state.config.dark_mode);
                                 }
@@ -1438,6 +1481,7 @@ fn main() {
                             }
                             IpcMessage::BeginHide => {
                                 state.main_target_visible = false;
+                                state.pending_hide_to_taskbar = false;
                                 if window.is_visible() && state.main_hide_deadline.is_none() {
                                     state.main_hide_deadline =
                                         Some(Instant::now() + Duration::from_millis(240));
@@ -1447,10 +1491,17 @@ fn main() {
                                 state.main_target_visible = false;
                                 state.finalize_hide_window(&window, &tray_webview);
                             }
+                            IpcMessage::BeginMinimize => {
+                                state.main_target_visible = false;
+                                state.pending_hide_to_taskbar = true;
+                                if window.is_visible() && state.main_hide_deadline.is_none() {
+                                    state.main_hide_deadline =
+                                        Some(Instant::now() + Duration::from_millis(240));
+                                }
+                            }
                             IpcMessage::MinimizeWindow => {
-                                state.main_hide_deadline = None;
-                                window.set_minimized(true);
-                                state.sync_tray_webview(&tray_webview, false);
+                                state.main_target_visible = false;
+                                state.finalize_minimize_window(&window, &tray_webview);
                             }
                         }
                     }

@@ -1386,19 +1386,22 @@
     }
   }
 
-  function animateHideAndPost() {
+  function animateHideAndPost(target = 'tray') {
+    const isTaskbar = target === 'taskbar';
+    const beginType = isTaskbar ? 'beginMinimize' : 'beginHide';
+    const finishType = isTaskbar ? 'minimizeWindow' : 'hideWindow';
     const shell = document.getElementById('app-shell');
     clearHoverAndTooltipState();
-    postIpc({ type: 'beginHide' });
+    postIpc({ type: beginType });
 
     if (!shell) {
-      postIpc({ type: 'hideWindow' });
+      postIpc({ type: finishType });
       return;
     }
 
     if (shell.classList.contains('win-hidden')) {
       cancelPendingHide();
-      postIpc({ type: 'hideWindow' });
+      postIpc({ type: finishType });
       return;
     }
 
@@ -1420,7 +1423,7 @@
       if (done) return;
       done = true;
       cleanup();
-      postIpc({ type: 'hideWindow' });
+      postIpc({ type: finishType });
     };
 
     const onEnd = (ev) => {
@@ -1539,12 +1542,11 @@
     }
     addControl('btn-min', 'Minimize window', 'Minimize', ICONS.minus, true, () => {
       playSound('click');
-      clearHoverAndTooltipState();
-      postIpc({ type: 'minimizeWindow' });
+      animateHideAndPost('taskbar');
     });
     addControl('btn-close', 'Close ShiftDNS to system tray', 'Close to tray (Esc)', ICONS.x, true, () => {
       playSound('click');
-      animateHideAndPost();
+      animateHideAndPost('tray');
     });
   }
 

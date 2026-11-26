@@ -1,3 +1,5 @@
+#[cfg(target_os = "windows")]
+use std::sync::OnceLock;
 use tao::dpi::{LogicalSize, PhysicalPosition};
 use tao::window::Window;
 
@@ -10,12 +12,12 @@ use windows_sys::Win32::Foundation::{
 };
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::Graphics::Dwm::{
-    DwmSetWindowAttribute, DWMWCP_ROUND, DWMWA_TRANSITIONS_FORCEDISABLED,
+    DwmFlush, DwmSetWindowAttribute, DWMWCP_ROUND, DWMWA_TRANSITIONS_FORCEDISABLED,
     DWMWA_WINDOW_CORNER_PREFERENCE,
 };
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::Graphics::Gdi::{
-    GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST,
+    CreateSolidBrush, GetMonitorInfoW, MonitorFromPoint, MONITORINFO, MONITOR_DEFAULTTONEAREST,
 };
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::System::Threading::CreateMutexW;
@@ -23,9 +25,13 @@ use windows_sys::Win32::System::Threading::CreateMutexW;
 use windows_sys::Win32::UI::Shell::ShellExecuteW;
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    FindWindowW, GetCursorPos, SetForegroundWindow, SetWindowPos, ShowWindow, HWND_TOPMOST,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_RESTORE, SW_SHOW, SW_SHOWNORMAL,
+    FindWindowW, GetCursorPos, SetForegroundWindow, SetWindowPos, ShowWindow, GCLP_HBRBACKGROUND,
+    HWND_TOPMOST, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SW_RESTORE, SW_SHOW, SW_SHOWNORMAL,
 };
+#[cfg(all(target_os = "windows", target_pointer_width = "64"))]
+use windows_sys::Win32::UI::WindowsAndMessaging::SetClassLongPtrW;
+#[cfg(all(target_os = "windows", target_pointer_width = "32"))]
+use windows_sys::Win32::UI::WindowsAndMessaging::SetClassLongW;
 
 pub const MAIN_WINDOW_WIDTH: f64 = 420.0;
 pub const MAIN_WINDOW_HEIGHT: f64 = 286.0; // 44px titlebar + 204px body (DHCP + 3 DNS rows) + 36px footer + 2px border
@@ -116,6 +122,51 @@ pub fn acquire_single_instance(_window_title: &str) -> Option<SingleInstanceGuar
 }
 
 #[cfg(target_os = "windows")]
+fn window_bg_brush(dark_mode: bool) -> usize {
+    static DARK_BRUSH: OnceLock<usize> = OnceLock::new();
+    static LIGHT_BRUSH: OnceLock<usize> = OnceLock::new();
+    let cell = if dark_mode { &DARK_BRUSH } else { &LIGHT_BRUSH };
+    *cell.get_or_init(|| unsafe {
+        // COLORREF (0x00BBGGRR): #0E1012 dark / #FFFFFF light prevents bare-HWND white flashes
+        let color: u32 = if dark_mode { 0x0012100E } else { 0x00FFFFFF };
+        CreateSolidBrush(color) as usize
+    })
+}
+
+#[cfg(target_os = "windows")]
+fn set_window_cloaked(hwnd: HWND, cloaked: bool) {
+    if hwnd.is_null() {
+        return;
+    }
+    const DWMWA_CLOAK: u32 = 13;
+    let value: i32 = if cloaked { 1 } else { 0 };
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_CLOAK,
+            &value as *const _ as *const _,
+            std::mem::size_of_val(&value) as u32,
+        );
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub fn minimize_window_cleanly(window: &Window) {
+    let hwnd = window.hwnd() as HWND;
+    set_window_cloaked(hwnd, true);
+    window.set_minimized(true);
+    unsafe {
+        let _ = DwmFlush();
+    }
+    set_window_cloaked(hwnd, false);
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn minimize_window_cleanly(window: &Window) {
+    window.set_minimized(true);
+}
+
+#[cfg(target_os = "windows")]
 fn configure_window_dwm_hwnd(hwnd: HWND, disable_transitions: bool, dark_mode: bool) {
     if hwnd.is_null() {
         return;
@@ -128,6 +179,14 @@ fn configure_window_dwm_hwnd(hwnd: HWND, disable_transitions: bool, dark_mode: b
             &preference as *const _ as *const _,
             std::mem::size_of_val(&preference) as u32,
         );
+        const DWMWA_USE_IMMERSIVE_DARK_MODE: u32 = 20;
+        let dark_val: i32 = if dark_mode { 1 } else { 0 };
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_USE_IMMERSIVE_DARK_MODE,
+            &dark_val as *const _ as *const _,
+            std::mem::size_of_val(&dark_val) as u32,
+        );
         // Match subtle 1px Windows 11 DWM border color (#22252A dark / #E5E5E5 light in COLORREF 0x00BBGGRR)
         const DWMWA_BORDER_COLOR: u32 = 34;
         let border_color: u32 = if dark_mode { 0x002A2522 } else { 0x00E5E5E5 };
@@ -137,6 +196,17 @@ fn configure_window_dwm_hwnd(hwnd: HWND, disable_transitions: bool, dark_mode: b
             &border_color as *const _ as *const _,
             std::mem::size_of_val(&border_color) as u32,
         );
+        let brush = window_bg_brush(dark_mode);
+        if brush != 0 {
+            #[cfg(target_pointer_width = "64")]
+            {
+                let _ = SetClassLongPtrW(hwnd, GCLP_HBRBACKGROUND, brush as isize);
+            }
+            #[cfg(target_pointer_width = "32")]
+            {
+                let _ = SetClassLongW(hwnd, GCLP_HBRBACKGROUND, brush as i32);
+            }
+        }
         if disable_transitions {
             let force_disable: i32 = 1; // Win32 BOOL TRUE
             let _ = DwmSetWindowAttribute(
