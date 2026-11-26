@@ -146,6 +146,7 @@
   html.suspend-hover .dns-row:not(.active):hover { background: transparent; }
   html.suspend-hover .dns-row:hover .grip-icon { opacity: 0; }
   html.suspend-hover .dns-row:hover .row-actions { opacity: 0; pointer-events: none; }
+  html.suspend-hover .dns-row:hover .row-status { opacity: 1; pointer-events: auto; }
   html.suspend-hover .settings-add-row:hover,
   html.suspend-hover .settings-check-row:hover,
   html.suspend-hover .settings-update-row:hover { background: transparent; }
@@ -437,6 +438,9 @@
     opacity: 0;
     pointer-events: none;
   }
+  .dns-list.is-dragging .dns-row:not(.dragging):hover .row-status {
+    opacity: 1;
+  }
   .dns-list.is-dragging .dns-row:not(.dragging):hover .grip-icon {
     opacity: 0;
   }
@@ -548,14 +552,16 @@
   .row-right {
     position: relative;
     padding-right: 16px;
-    display: flex;
+    display: inline-grid;
     align-items: center;
-    justify-content: flex-end;
-    gap: 4px;
+    justify-items: end;
     flex-shrink: 0;
   }
 
   .row-actions, .row-status {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: end;
     display: flex;
     align-items: center;
   }
@@ -571,6 +577,7 @@
     gap: 6px;
     opacity: 1;
     pointer-events: auto;
+    transition: opacity 150ms ease;
   }
 
   @media (hover: hover) {
@@ -578,11 +585,20 @@
       opacity: 1;
       pointer-events: auto;
     }
+    .dns-row:not(.just-activated):hover .row-status {
+      opacity: 0;
+      pointer-events: none;
+    }
   }
 
   .dns-row:has(.row-actions:focus-within) .row-actions {
     opacity: 1;
     pointer-events: auto;
+  }
+
+  .dns-row:has(.row-actions:focus-within) .row-status {
+    opacity: 0;
+    pointer-events: none;
   }
 
   .action-btn {
@@ -1637,10 +1653,42 @@
   }
 
   let justActivatedId = null;
+  let justActivatedTimer = null;
+
+  function clearJustActivated() {
+    if (justActivatedTimer !== null) {
+      clearTimeout(justActivatedTimer);
+      justActivatedTimer = null;
+    }
+    if (justActivatedId) {
+      const prevRow = document.querySelector(`.dns-row[data-profile-id="${CSS.escape(justActivatedId)}"]`);
+      if (prevRow) prevRow.classList.remove('just-activated');
+      justActivatedId = null;
+    }
+  }
+
+  function holdActivePing(profileId, ms) {
+    if (justActivatedTimer !== null) {
+      clearTimeout(justActivatedTimer);
+      justActivatedTimer = null;
+    }
+    if (!profileId) {
+      clearJustActivated();
+      return;
+    }
+    justActivatedId = profileId;
+    justActivatedTimer = setTimeout(() => {
+      clearJustActivated();
+    }, ms);
+  }
 
   function applyOptimisticActivation(targetId) {
     const selected = targetId ? appState.profiles.find((p) => p.id === targetId) || null : null;
-    justActivatedId = targetId;
+    if (targetId) {
+      holdActivePing(targetId, 3200);
+    } else {
+      clearJustActivated();
+    }
     appState.activeProfileId = targetId;
     appState.activeLatency = undefined;
     appState.activeResolveStatus = null;
@@ -1670,6 +1718,9 @@
     pingBtn.textContent = lat.text;
     pingBtn.title = lat.title;
     pingBtn.setAttribute('aria-label', lat.title);
+    if (!appState.probingActive && justActivatedId === activeId) {
+      holdActivePing(activeId, 2400);
+    }
     return true;
   }
 
@@ -1757,8 +1808,7 @@
         row.dataset.navId = p.id;
         row.addEventListener('mouseleave', () => {
           if (justActivatedId === p.id) {
-            justActivatedId = null;
-            row.classList.remove('just-activated');
+            clearJustActivated();
           }
         });
 
