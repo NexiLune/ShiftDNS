@@ -52,8 +52,9 @@ enum UserEvent {
         gen: u64,
         adapters: Vec<NetworkAdapter>,
         detected_active_id: Option<String>,
-        trigger_probe: bool,
+        force_probe: bool,
     },
+    NetworkChanged,
     DnsApplyFinished {
         gen: u64,
         previous_active_id: Option<String>,
@@ -69,6 +70,11 @@ enum UserEvent {
         gen: u64,
         result: DnsProbeResult,
         manual: bool,
+    },
+    PingAllItemFinished {
+        gen: u64,
+        profile_id: String,
+        result: DnsProbeResult,
     },
     UpdateCheckFinished {
         outcome: UpdateCheckOutcome,
@@ -93,8 +99,6 @@ enum IpcMessage {
     },
     #[serde(rename = "resetDefaults")]
     ResetDefaults,
-    #[serde(rename = "probeActive")]
-    ProbeActive,
     #[serde(rename = "cycleAdapter")]
     CycleAdapter,
     #[serde(rename = "toggleSetting")]
@@ -103,6 +107,8 @@ enum IpcMessage {
     SetThemeMode { mode: String },
     #[serde(rename = "setResolveDomain")]
     SetResolveDomain { domain: String },
+    #[serde(rename = "pingAll")]
+    PingAll,
     #[serde(rename = "checkUpdate")]
     CheckUpdate,
     #[serde(rename = "openReleaseUrl")]
@@ -210,12 +216,35 @@ struct UiSyncPayload<'a> {
     active_resolved_ip: Option<&'a str>,
     #[serde(rename = "probingActive")]
     probing_active: bool,
+    #[serde(rename = "profileProbes")]
+    profile_probes: &'a HashMap<String, ProfileProbePayload>,
+    #[serde(rename = "pingingAll")]
+    pinging_all: bool,
     #[serde(rename = "updateState")]
     update_state: &'a UpdateUiState,
     #[serde(rename = "statusMessage")]
     status_message: &'a str,
     #[serde(rename = "statusIsError")]
     status_is_error: bool,
+}
+
+#[derive(Clone, Serialize)]
+struct ProfileProbePayload {
+    #[serde(rename = "rttMs")]
+    rtt_ms: Option<u128>,
+    status: &'static str,
+    #[serde(rename = "resolvedIp")]
+    resolved_ip: Option<String>,
+}
+
+impl ProfileProbePayload {
+    fn from_result(result: &DnsProbeResult) -> Self {
+        Self {
+            rtt_ms: result.rtt_ms,
+            status: result.status.as_str(),
+            resolved_ip: result.resolved_ip.clone(),
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -299,6 +328,13 @@ struct AppState {
     active_resolved_ip: Option<String>,
     probing_active: bool,
     probe_generation: u64,
+    profile_probes: HashMap<String, ProfileProbePayload>,
+    pinging_all: bool,
+    ping_all_generation: u64,
+    ping_all_remaining: usize,
+    network_reprobe_at: Option<Instant>,
+    disruption_retry_at: Option<Instant>,
+    disruption_retried: bool,
     update_state: UpdateUiState,
     update_checking: bool,
     op_generation: u64,
@@ -344,6 +380,13 @@ impl AppState {
             active_resolved_ip: None,
             probing_active: false,
             probe_generation: 0,
+            profile_probes: HashMap::new(),
+            pinging_all: false,
+            ping_all_generation: 0,
+            ping_all_remaining: 0,
+            network_reprobe_at: None,
+            disruption_retry_at: None,
+            disruption_retried: false,
             update_state: UpdateUiState::idle(),
             update_checking: false,
             op_generation: 0,
@@ -403,6 +446,22 @@ impl AppState {
         self.active_resolve_status = None;
         self.active_resolved_ip = None;
         self.probing_active = false;
+        self.disruption_retry_at = None;
+        self.disruption_retried = false;
+    }
+
+    fn clear_all_profile_probes(&mut self) {
+        self.ping_all_generation = self.ping_all_generation.saturating_add(1);
+        self.pinging_all = false;
+        self.ping_all_remaining = 0;
+        self.profile_probes.clear();
+    }
+
+    fn needs_initial_or_recovery_probe(&self) -> bool {
+        self.config.active_profile_id.is_some()
+            && !self.probing_active
+            && (self.active_latency.is_none()
+                || self.active_resolve_status != Some(ResolveStatus::Ok))
     }
 
     fn set_transient_status(&mut self, msg: impl Into<String>) {
@@ -423,7 +482,7 @@ impl AppState {
         }
     }
 
-    fn spawn_refresh_adapters(&mut self, trigger_probe: bool) {
+    fn spawn_refresh_adapters(&mut self, force_probe: bool) {
         if self.op_in_flight {
             return;
         }
@@ -431,7 +490,9 @@ impl AppState {
             .last_refresh_at
             .is_some_and(|t| t.elapsed() < Duration::from_secs(5))
         {
-            if trigger_probe && self.config.active_profile_id.is_some() && !self.probing_active {
+            if (force_probe && self.config.active_profile_id.is_some() && !self.probing_active)
+                || self.needs_initial_or_recovery_probe()
+            {
                 self.spawn_active_probe(false);
             }
             return;
@@ -455,7 +516,7 @@ impl AppState {
                 gen,
                 adapters,
                 detected_active_id,
-                trigger_probe,
+                force_probe,
             });
         });
     }
@@ -466,9 +527,9 @@ impl AppState {
                 let online = self.adapters.is_empty()
                     || self.adapters.iter().any(|a| a.name == selected);
                 return if online {
-                    format!("{selected} · Admin")
+                    selected.to_string()
                 } else {
-                    format!("{selected} (Offline) · Admin")
+                    format!("{selected} (Offline)")
                 };
             }
         }
@@ -477,9 +538,9 @@ impl AppState {
             .iter()
             .find(|a| !dns::is_excluded_adapter(&a.name, &a.description))
         {
-            format!("Auto ({}) · Admin", first.name)
+            format!("Auto ({})", first.name)
         } else {
-            "Auto · Admin".to_string()
+            "Auto".to_string()
         }
     }
 
@@ -554,6 +615,8 @@ impl AppState {
             active_resolve_status: self.active_resolve_status.map(|s| s.as_str()),
             active_resolved_ip: self.active_resolved_ip.as_deref(),
             probing_active: self.probing_active,
+            profile_probes: &self.profile_probes,
+            pinging_all: self.pinging_all,
             update_state: &self.update_state,
             status_message: &self.status_message,
             status_is_error: self.status_is_error,
@@ -599,6 +662,62 @@ impl AppState {
         });
     }
 
+    fn spawn_ping_all(&mut self, webview: &WebView) {
+        if self.pinging_all || self.config.profiles.is_empty() {
+            return;
+        }
+        self.ping_all_generation = self.ping_all_generation.saturating_add(1);
+        let gen = self.ping_all_generation;
+        self.profile_probes.clear();
+        self.pinging_all = true;
+        self.ping_all_remaining = 0;
+
+        let domain = self.config.resolve_check_domain.clone();
+        let targets: Vec<(String, String)> = self
+            .config
+            .profiles
+            .iter()
+            .map(|p| {
+                let ip = if !p.primary_v4.is_empty() {
+                    p.primary_v4.clone()
+                } else {
+                    p.primary_v6.clone()
+                };
+                (p.id.clone(), ip)
+            })
+            .collect();
+
+        for (profile_id, target_ip) in targets {
+            if target_ip.is_empty() {
+                self.profile_probes.insert(
+                    profile_id,
+                    ProfileProbePayload {
+                        rtt_ms: None,
+                        status: ResolveStatus::Timeout.as_str(),
+                        resolved_ip: None,
+                    },
+                );
+                continue;
+            }
+            self.ping_all_remaining += 1;
+            let domain_clone = domain.clone();
+            let proxy = self.proxy.clone();
+            std::thread::spawn(move || {
+                let result = benchmark::probe_dns_resolve(&target_ip, &domain_clone);
+                let _ = proxy.send_event(UserEvent::PingAllItemFinished {
+                    gen,
+                    profile_id,
+                    result,
+                });
+            });
+        }
+
+        if self.ping_all_remaining == 0 {
+            self.pinging_all = false;
+        }
+        self.sync_webview(webview);
+    }
+
     fn set_resolve_domain(&mut self, domain: &str, webview: &WebView) {
         if !is_valid_hostname(domain) {
             self.set_error_status("Enter a valid domain (e.g. cloudflare.com)");
@@ -615,6 +734,7 @@ impl AppState {
         }
         self.config.resolve_check_domain = clean.clone();
         self.clear_active_probe_state();
+        self.clear_all_profile_probes();
         self.save_config();
         self.set_transient_status(format!("Resolve check: {clean}"));
         if self.config.active_profile_id.is_some() {
@@ -664,6 +784,7 @@ impl AppState {
             self.clear_active_probe_state();
             self.probe_generation = self.probe_generation.saturating_add(1);
         }
+        self.clear_all_profile_probes();
         self.save_config();
         self.sync_tray_icon();
 
@@ -876,6 +997,7 @@ impl AppState {
                 target.doh_template = validated.doh_template;
                 updated = true;
             }
+            self.profile_probes.remove(&editing_id);
             self.save_config();
             if updated && self.config.active_profile_id.as_deref() == Some(editing_id.as_str()) {
                 self.activate_profile(&editing_id, webview, tray_webview);
@@ -935,6 +1057,7 @@ impl AppState {
             .map(|p| p.name.clone());
         let was_active = self.config.active_profile_id.as_deref() == Some(id);
         self.config.profiles.retain(|p| p.id != id);
+        self.profile_probes.remove(id);
         if was_active {
             self.save_config();
             self.activate_dhcp(webview, tray_webview);
@@ -1113,7 +1236,7 @@ impl AppState {
             let _ = webview
                 .evaluate_script("window.__shiftdnsAnimateShow && window.__shiftdnsAnimateShow();");
         }
-        self.spawn_refresh_adapters(true);
+        self.spawn_refresh_adapters(false);
         self.sync_all_ui(webview, tray_webview);
     }
 
@@ -1328,6 +1451,10 @@ fn main() {
         !hide_on_boot,
         initial_tray_height,
     );
+    let net_proxy = state.proxy.clone();
+    dns::spawn_network_change_watcher(move || {
+        let _ = net_proxy.send_event(UserEvent::NetworkChanged);
+    });
     state.spawn_refresh_adapters(!hide_on_boot);
     // Re-sync existing startup task on launch so legacy tasks or relocated binaries self-heal.
     if state.config.launch_at_startup {
@@ -1358,6 +1485,33 @@ fn main() {
                         );
                         state.status_is_error = false;
                         state.sync_webview(&webview);
+                    }
+                }
+                if let Some(deadline) = state.network_reprobe_at {
+                    if Instant::now() >= deadline {
+                        if state.op_in_flight {
+                            state.network_reprobe_at =
+                                Some(Instant::now() + Duration::from_millis(1200));
+                        } else {
+                            state.network_reprobe_at = None;
+                            state.disruption_retry_at = None;
+                            state.disruption_retried = false;
+                            state.last_refresh_at = None;
+                            state.spawn_refresh_adapters(true);
+                        }
+                    }
+                }
+                if let Some(deadline) = state.disruption_retry_at {
+                    if Instant::now() >= deadline {
+                        state.disruption_retry_at = None;
+                        if !state.op_in_flight
+                            && state.config.active_profile_id.is_some()
+                            && !state.probing_active
+                            && state.active_resolve_status == Some(ResolveStatus::Timeout)
+                        {
+                            state.spawn_active_probe(false);
+                            state.sync_webview(&webview);
+                        }
                     }
                 }
                 if let Some(deadline) = state.tray_retry_at {
@@ -1415,7 +1569,7 @@ fn main() {
                                 if !state.main_target_visible && state.main_hide_deadline.is_none() {
                                     state.show_window(&window, &webview, &tray_webview);
                                 } else if state.main_target_visible {
-                                    state.spawn_refresh_adapters(true);
+                                    state.spawn_refresh_adapters(false);
                                     state.sync_tray_webview(&tray_webview);
                                 }
                             }
@@ -1513,10 +1667,6 @@ fn main() {
                             IpcMessage::ResetDefaults => {
                                 state.reset_defaults(&webview, &tray_webview);
                             }
-                            IpcMessage::ProbeActive => {
-                                state.spawn_active_probe(true);
-                                state.sync_webview(&webview);
-                            }
                             IpcMessage::CycleAdapter => {
                                 state.cycle_adapter(&webview, &tray_webview);
                             }
@@ -1544,6 +1694,9 @@ fn main() {
                             }
                             IpcMessage::SetResolveDomain { domain } => {
                                 state.set_resolve_domain(&domain, &webview);
+                            }
+                            IpcMessage::PingAll => {
+                                state.spawn_ping_all(&webview);
                             }
                             IpcMessage::CheckUpdate => {
                                 state.check_for_updates(&webview);
@@ -1632,19 +1785,37 @@ fn main() {
                         }
                     }
                 }
+                UserEvent::NetworkChanged => {
+                    state.network_reprobe_at =
+                        Some(Instant::now() + Duration::from_millis(1200));
+                }
                 UserEvent::AdaptersRefreshed {
                     gen,
                     adapters,
                     detected_active_id,
-                    trigger_probe,
+                    force_probe,
                 } => {
                     if !state.op_in_flight && gen == state.refresh_generation {
+                        let prev_topology: Vec<(&str, &str)> = state
+                            .adapters
+                            .iter()
+                            .map(|a| (a.name.as_str(), a.state.as_str()))
+                            .collect();
+                        let next_topology: Vec<(&str, &str)> = adapters
+                            .iter()
+                            .map(|a| (a.name.as_str(), a.state.as_str()))
+                            .collect();
+                        let network_changed =
+                            !state.adapters.is_empty() && prev_topology != next_topology;
+
                         let target_present = match state.config.selected_adapter.as_deref() {
                             Some(sel) => adapters.iter().any(|a| a.name == sel),
                             None => !adapters.is_empty(),
                         };
                         state.adapters = adapters;
-                        if target_present && detected_active_id != state.config.active_profile_id {
+                        let active_changed =
+                            target_present && detected_active_id != state.config.active_profile_id;
+                        if active_changed {
                             state.config.active_profile_id = detected_active_id;
                             state.clear_active_probe_state();
                             state.save_config();
@@ -1656,9 +1827,12 @@ fn main() {
                             }
                             state.sync_tray_icon();
                         }
-                        if trigger_probe
-                            && state.config.active_profile_id.is_some()
+                        if state.config.active_profile_id.is_some()
                             && !state.probing_active
+                            && (force_probe
+                                || network_changed
+                                || active_changed
+                                || state.needs_initial_or_recovery_probe())
                         {
                             state.spawn_active_probe(false);
                         }
@@ -1742,6 +1916,23 @@ fn main() {
                         state.active_latency = Some(result.rtt_ms);
                         state.active_resolve_status = Some(result.status);
                         state.active_resolved_ip = result.resolved_ip.clone();
+                        match result.status {
+                            ResolveStatus::Ok => {
+                                state.disruption_retry_at = None;
+                                state.disruption_retried = false;
+                            }
+                            ResolveStatus::Timeout => {
+                                // Re-check once after a brief pause in case Wi-Fi/ISP is recovering.
+                                if !state.disruption_retried {
+                                    state.disruption_retried = true;
+                                    state.disruption_retry_at =
+                                        Some(Instant::now() + Duration::from_secs(8));
+                                }
+                            }
+                            _ => {
+                                state.disruption_retry_at = None;
+                            }
+                        }
                         let domain = state.config.resolve_check_domain.clone();
                         match result.status {
                             ResolveStatus::Blocked => {
@@ -1761,7 +1952,56 @@ fn main() {
                             }
                             _ => {}
                         }
+                        if let Some(active_id) = state.config.active_profile_id.clone() {
+                            state
+                                .profile_probes
+                                .insert(active_id, ProfileProbePayload::from_result(&result));
+                        }
                         state.sync_tray_icon();
+                        state.sync_webview(&webview);
+                    }
+                }
+                UserEvent::PingAllItemFinished {
+                    gen,
+                    profile_id,
+                    result,
+                } => {
+                    if gen == state.ping_all_generation {
+                        if state.config.profiles.iter().any(|p| p.id == profile_id) {
+                            state.profile_probes.insert(
+                                profile_id.clone(),
+                                ProfileProbePayload::from_result(&result),
+                            );
+                        }
+                        if state.config.active_profile_id.as_deref() == Some(profile_id.as_str()) {
+                            state.probing_active = false;
+                            state.active_latency = Some(result.rtt_ms);
+                            state.active_resolve_status = Some(result.status);
+                            state.active_resolved_ip = result.resolved_ip.clone();
+                            state.sync_tray_icon();
+                        }
+                        state.ping_all_remaining = state.ping_all_remaining.saturating_sub(1);
+                        if state.ping_all_remaining == 0 {
+                            state.pinging_all = false;
+                            let best = state
+                                .config
+                                .profiles
+                                .iter()
+                                .filter_map(|p| {
+                                    let probe = state.profile_probes.get(&p.id)?;
+                                    if probe.status != "ok" {
+                                        return None;
+                                    }
+                                    Some((p.name.as_str(), probe.rtt_ms?))
+                                })
+                                .min_by_key(|(_, ms)| *ms)
+                                .map(|(name, ms)| (name.to_string(), ms));
+                            if let Some((name, ms)) = best {
+                                state.set_transient_status(format!("Fastest: {name} ({ms} ms)"));
+                            } else {
+                                state.set_error_status("No DNS servers responded");
+                            }
+                        }
                         state.sync_webview(&webview);
                     }
                 }
@@ -1809,6 +2049,8 @@ fn main() {
             state.status_revert_at,
             state.main_hide_deadline,
             state.tray_retry_at,
+            state.network_reprobe_at,
+            state.disruption_retry_at,
         ]
         .into_iter()
         .flatten()

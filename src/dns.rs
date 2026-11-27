@@ -157,6 +157,49 @@ mod win_dns_api {
         }
     }
 
+    type NotifyChangeFn = unsafe extern "system" fn(
+        *mut *mut std::ffi::c_void,
+        *mut std::ffi::c_void,
+    ) -> u32;
+
+    fn resolve_iphlpapi_notify(symbol: &'static [u8]) -> Option<NotifyChangeFn> {
+        unsafe {
+            let dll = to_wide("iphlpapi.dll");
+            let module = LoadLibraryW(dll.as_ptr());
+            if module.is_null() {
+                return None;
+            }
+            let sym = GetProcAddress(module, symbol.as_ptr());
+            sym.map(|f| std::mem::transmute::<_, NotifyChangeFn>(f))
+        }
+    }
+
+    pub fn spawn_network_change_watcher<F>(on_change: F)
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        use std::sync::Arc;
+        use std::time::Duration;
+
+        let callback = Arc::new(on_change);
+        for symbol in [b"NotifyAddrChange\0".as_slice(), b"NotifyRouteChange\0".as_slice()] {
+            let Some(notify_fn) = resolve_iphlpapi_notify(symbol) else {
+                continue;
+            };
+            let cb = Arc::clone(&callback);
+            std::thread::spawn(move || loop {
+                let status = unsafe { notify_fn(std::ptr::null_mut(), std::ptr::null_mut()) };
+                if status == 0 {
+                    cb();
+                    // Coalesce rapid bursts during Wi-Fi roaming / DHCP lease acquisition.
+                    std::thread::sleep(Duration::from_millis(1500));
+                } else {
+                    std::thread::sleep(Duration::from_secs(10));
+                }
+            });
+        }
+    }
+
     /// Directly flushes the Windows DNS resolver cache via dnsapi.dll::DnsFlushResolverCache (<1ms).
     pub fn flush_resolver_cache() -> bool {
         let Some(func) = resolve_flush_dns_fn() else {
@@ -164,6 +207,18 @@ mod win_dns_api {
         };
         unsafe { func() != 0 }
     }
+}
+
+/// Watches OS IP address and routing table changes (Wi-Fi switch, disconnect/reconnect,
+/// adapter link change) with zero polling and invokes `on_change`.
+pub fn spawn_network_change_watcher<F>(on_change: F)
+where
+    F: Fn() + Send + Sync + 'static,
+{
+    #[cfg(target_os = "windows")]
+    win_dns_api::spawn_network_change_watcher(on_change);
+    #[cfg(not(target_os = "windows"))]
+    let _ = on_change;
 }
 
 fn has_word_token(haystack: &str, word: &str) -> bool {

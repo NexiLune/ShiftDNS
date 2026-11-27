@@ -21,7 +21,8 @@
     --text-footer: #8B92A0;
     --border: rgba(255, 255, 255, 0.08);
     --border-outer: #2E323B;
-    --active-bg: #262A32;
+    --active-bg: #23262E;
+    --active-border: rgba(255, 255, 255, 0.11);
     --hover-bg: #22252B;
     --icon-hover-bg: #292D36;
     --action-hover-bg: #303540;
@@ -47,6 +48,10 @@
     --mono-accent: #F1F3F6;
     --mono-accent-hover: #FFFFFF;
     --mono-accent-text: #17191D;
+    --save-bg: #D5DBE4;
+    --save-hover: #E3E7EE;
+    --save-text: #15171B;
+    --save-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 1px 2px rgba(0, 0, 0, 0.28);
     --mono-focus-border: rgba(241, 243, 246, 0.34);
     --seg-bg: #15171B;
     --seg-border: rgba(255, 255, 255, 0.09);
@@ -58,8 +63,8 @@
     --switch-off-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.36);
     --switch-off-thumb: #B8BFC9;
     --switch-off-hover-thumb: #DDE1E8;
-    --switch-on-bg: #F1F3F6;
-    --switch-on-hover-bg: #FFFFFF;
+    --switch-on-bg: #D5DBE4;
+    --switch-on-hover-bg: #E3E7EE;
     --switch-on-thumb: #15171B;
     --switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
     --title-divider: rgba(255, 255, 255, 0.12);
@@ -85,7 +90,8 @@
     --border: rgba(23, 23, 23, 0.08);
     --border-outer: #E4E4E7;
     --active-bg: #F4F4F5;
-    --hover-bg: #F7F7F8;
+    --active-border: rgba(23, 23, 23, 0.1);
+    --hover-bg: rgba(244, 244, 245, 0.75);
     --icon-hover-bg: #ECECEE;
     --action-hover-bg: #E4E4E7;
     --accent: #16A34A;
@@ -110,14 +116,18 @@
     --mono-accent: #171717;
     --mono-accent-hover: #2A2A2D;
     --mono-accent-text: #FFFFFF;
+    --save-bg: #23252A;
+    --save-hover: #32353C;
+    --save-text: #FFFFFF;
+    --save-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
     --mono-focus-border: rgba(23, 23, 23, 0.35);
     --seg-bg: #F1F1F3;
     --seg-border: rgba(23, 23, 23, 0.08);
     --seg-active-bg: #FFFFFF;
     --seg-active-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
     --switch-off-bg: #E4E4E7;
-    --switch-off-border: rgba(23, 23, 23, 0.14);
-    --switch-off-hover-border: rgba(23, 23, 23, 0.24);
+    --switch-off-border: rgba(23, 23, 23, 0.22);
+    --switch-off-hover-border: rgba(23, 23, 23, 0.32);
     --switch-off-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
     --switch-off-thumb: #FFFFFF;
     --switch-off-hover-thumb: #FFFFFF;
@@ -140,7 +150,7 @@
   html, body {
     width: 100%;
     height: 100%;
-    overflow: hidden;
+    overflow: clip;
     background: var(--bg);
     color: var(--text);
     font-family: var(--font-sans);
@@ -155,7 +165,7 @@
     color: var(--text);
     border: 1px solid var(--border-outer);
     border-radius: 8px;
-    overflow: hidden;
+    overflow: clip;
     display: flex;
     flex-direction: column;
     transform-origin: center center;
@@ -171,7 +181,7 @@
   #main-body {
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow: clip;
     display: flex;
     flex-direction: column;
   }
@@ -195,8 +205,13 @@
 
   @media (prefers-reduced-motion: reduce) {
     html.theme-transitioning .app-shell,
-    html.theme-transitioning .app-shell * {
+    html.theme-transitioning .app-shell *,
+    .adv-plus-v,
+    .adv-collapse,
+    .adv-fields,
+    .adv-slot-reveal {
       transition-duration: 0ms !important;
+      transition-delay: 0ms !important;
     }
   }
 
@@ -290,6 +305,9 @@
   }
 
   .icon-btn:active { transform: scale(0.95); }
+  .icon-btn:disabled { opacity: 0.42; cursor: not-allowed; }
+  .icon-btn:disabled:hover { color: var(--text-muted); background: transparent; }
+  .icon-btn:disabled:active { transform: none; }
   .icon-btn:focus-visible { outline: 1px solid var(--kb-ring); }
   .icon-btn svg { width: 15px; height: 15px; }
 
@@ -376,6 +394,13 @@
     padding-bottom: 0;
   }
 
+  .dns-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px 8px;
+  }
+
   .settings-scroll {
     padding-bottom: 6px;
   }
@@ -434,23 +459,18 @@
   .dns-row {
     position: relative;
     width: 100%;
-    height: 51px;
-    min-height: 51px;
+    height: 48px;
+    min-height: 48px;
+    flex-shrink: 0;
     box-sizing: border-box;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid var(--border);
     background: transparent;
     transition: background-color 150ms ease;
   }
 
-  .dns-row.last-row {
-    border-bottom: 0;
-    height: 50px;
-    min-height: 50px;
-  }
-  .dns-row.active { background: var(--active-bg); }
   .dns-row:not(.active):hover { background: var(--hover-bg); }
   .dns-row.kb-focused {
     box-shadow: inset 0 0 0 1px var(--kb-ring);
@@ -459,7 +479,7 @@
   .dns-row.dragging {
     position: relative;
     background: var(--active-bg);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+    box-shadow: inset 0 0 0 1px var(--active-border), 0 10px 28px rgba(0, 0, 0, 0.45);
     z-index: 25;
     transition: none;
     will-change: transform;
@@ -467,7 +487,7 @@
   }
 
   html.light .dns-row.dragging {
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    box-shadow: inset 0 0 0 1px var(--active-border), 0 8px 20px rgba(0, 0, 0, 0.1);
   }
 
   .dns-row.drag-neighbor {
@@ -489,23 +509,24 @@
     opacity: 0;
   }
 
-  .active-bar {
+  .active-card {
     position: absolute;
-    left: 0;
-    top: 6px;
-    bottom: 6px;
-    width: 2.5px;
-    border-radius: 0 9999px 9999px 0;
-    background: var(--accent);
+    inset: 0;
+    border-radius: 10px;
+    background: var(--active-bg);
+    border: 1px solid var(--active-border);
     pointer-events: none;
-    z-index: 20;
+    z-index: 0;
   }
 
   .dhcp-btn {
+    position: relative;
+    z-index: 1;
     width: 100%;
     height: 100%;
-    padding: 7px 16px 7px 20px;
+    padding: 6px 14px 6px 18px;
     border: 0;
+    border-radius: 10px;
     background: transparent;
     color: inherit;
     font-family: inherit;
@@ -519,11 +540,13 @@
 
   .row-main-btn {
     position: relative;
+    z-index: 1;
     flex: 1;
     min-width: 0;
     height: 100%;
-    padding: 7px 8px 7px 20px;
+    padding: 6px 8px 6px 18px;
     border: 0;
+    border-radius: 10px 0 0 10px;
     background: transparent;
     color: inherit;
     font-family: inherit;
@@ -539,7 +562,7 @@
 
   .grip-icon {
     position: absolute;
-    left: 6px;
+    left: 5px;
     top: 50%;
     transform: translateY(-50%);
     width: 10px;
@@ -573,6 +596,10 @@
     text-overflow: ellipsis;
   }
 
+  .dns-row.active .row-name {
+    font-weight: 600;
+  }
+
   .row-ips,
   .row-sub {
     font-size: 12px;
@@ -591,7 +618,8 @@
 
   .row-right {
     position: relative;
-    padding-right: 16px;
+    z-index: 1;
+    padding-right: 14px;
     display: inline-grid;
     align-items: center;
     justify-items: end;
@@ -614,7 +642,7 @@
   }
 
   .row-status {
-    gap: 6px;
+    gap: 8px;
     opacity: 1;
     pointer-events: auto;
     transition: opacity 150ms ease;
@@ -696,19 +724,15 @@
   .confirm-delete-btn:active { transform: scale(0.97); }
   .confirm-delete-btn:focus-visible { outline: 1px solid var(--danger-hover-bg); outline-offset: 1px; }
 
-  .ping-btn {
-    padding: 2px 6px;
-    border: 0;
-    border-radius: 4px;
-    background: transparent;
+  .ping-badge {
+    padding: 2px 4px;
     font-family: var(--font-mono);
     font-size: 12px;
     font-variant-numeric: tabular-nums;
-    cursor: pointer;
-    transition: background-color 150ms ease;
+    pointer-events: none;
+    user-select: none;
   }
 
-  .ping-btn:hover { background: var(--pill-hover); }
   .ping-fast { color: var(--fast); }
   .ping-medium { color: var(--medium); }
   .ping-slow { color: var(--slow); }
@@ -768,7 +792,9 @@
   }
 
   .settings-row.last-row { border-bottom: 0; }
-  .settings-toggle-row { cursor: pointer; }
+  /* Keep sr-only checkbox anchored inside its scrolled row so focusing it never scrolls .app-shell */
+  .settings-toggle-row { position: relative; cursor: pointer; }
+  .settings-toggle-row .sr-only { top: 50%; right: 16px; }
   .settings-toggle-row:hover { background: var(--hover-bg); }
 
   .settings-row-text {
@@ -1039,6 +1065,17 @@
     opacity: 0.55;
   }
 
+  #settings-check-update {
+    width: 72px;
+    padding: 0;
+  }
+
+  #settings-check-update svg {
+    width: 14px;
+    height: 14px;
+    display: block;
+  }
+
   .settings-download-btn {
     display: inline-flex;
     align-items: center;
@@ -1180,19 +1217,122 @@
     line-height: 16px;
     font-weight: 500;
     cursor: pointer;
-    transition: color 150ms ease;
+    transition: color 150ms var(--ease-unslop), transform 140ms var(--ease-unslop);
   }
 
   .adv-toggle-btn:hover { color: var(--text); }
+  .adv-toggle-btn:active { transform: scale(0.98); }
   .adv-toggle-btn:focus-visible { outline: 1px solid var(--kb-ring); outline-offset: 2px; }
   .adv-toggle-btn svg { width: 14px; height: 14px; }
 
+  .adv-plus-v {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .adv-toggle-btn[aria-expanded="true"] .adv-plus-v {
+    transform: rotate(90deg) scaleY(0.25);
+    opacity: 0;
+  }
+
+  .adv-collapse {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    pointer-events: none;
+    will-change: grid-template-rows, opacity;
+    transition:
+      grid-template-rows 240ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .adv-collapse.is-open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    pointer-events: auto;
+    transition:
+      grid-template-rows 300ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .adv-collapse-inner {
+    overflow: hidden;
+    min-height: 0;
+  }
+
   .adv-fields {
-    margin-top: 8px;
+    padding-top: 8px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    transform-origin: top center;
+    transform: translateY(-4px) scale(0.99);
+    transition: transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
   }
+
+  .adv-collapse.is-open .adv-fields {
+    transform: translateY(0) scale(1);
+    transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .adv-slot-reveal {
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1), transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .adv-slot-reveal.is-shown {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .adv-off-row {
+    height: 34px;
+    padding: 0 6px 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text-soft);
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .adv-enable-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    padding: 0 10px;
+    border: 1px solid var(--btn-sec-border);
+    border-radius: 6px;
+    background: var(--btn-sec-bg);
+    color: var(--text);
+    box-shadow: var(--btn-sec-shadow);
+    font-family: inherit;
+    font-size: 11px;
+    line-height: 1;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 140ms var(--ease-unslop), border-color 140ms var(--ease-unslop), transform 140ms var(--ease-unslop);
+  }
+
+  .adv-enable-btn.compact {
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 5px;
+    font-size: 10.5px;
+    box-shadow: none;
+  }
+
+  .adv-enable-btn:hover { background: var(--btn-sec-hover); border-color: var(--btn-sec-hover-border); }
+  .adv-enable-btn:active { transform: scale(0.97); }
+  .adv-enable-btn:focus-visible { outline: 1px solid var(--kb-ring); outline-offset: 2px; }
 
   .save-btn {
     width: 100%;
@@ -1200,17 +1340,23 @@
     padding: 0 16px;
     border: 0;
     border-radius: 7px;
-    background: var(--mono-accent);
-    color: var(--mono-accent-text);
+    background: var(--save-bg);
+    color: var(--save-text);
+    box-shadow: var(--save-shadow);
     font-family: inherit;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    transition: background-color 150ms var(--ease-unslop), color 150ms var(--ease-unslop), transform 140ms var(--ease-unslop);
+    transition: background-color 150ms var(--ease-unslop), color 150ms var(--ease-unslop), opacity 150ms var(--ease-unslop), transform 140ms var(--ease-unslop);
   }
 
-  .save-btn:hover { background: var(--mono-accent-hover); }
-  .save-btn:active { transform: scale(0.99); }
+  .save-btn:hover:not(:disabled) { background: var(--save-hover); }
+  .save-btn:active:not(:disabled) { transform: scale(0.99); }
+  .save-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
   .save-btn:focus-visible { outline: 2px solid var(--kb-ring); outline-offset: 2px; }
 
   /* Status Footer */
@@ -1325,7 +1471,7 @@
       aria-label="Switch network adapter"
     >
       <span class="adapter-dot" aria-hidden="true"></span>
-      <span class="adapter-text" id="adapter-label">Auto (Wi-Fi) · Admin</span>
+      <span class="adapter-text" id="adapter-label">Auto (Wi-Fi)</span>
     </button>
     <div class="status-msg-wrap">
       <div class="status-msg" id="status-message">System Default (DHCP)</div>
@@ -1341,12 +1487,15 @@
     x: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>`,
     chevronLeft: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>`,
     plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>`,
+    activity: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>`,
+    pingSpinner: `<svg viewBox="0 0 16 16" fill="none" aria-hidden="true" style="width:14px;height:14px"><circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-opacity="0.22" stroke-width="1.7"/><path d="M13.5 8a5.5 5.5 0 0 0-5.5-5.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 8 8" to="360 8 8" dur="0.7s" repeatCount="indefinite"/></path></svg>`,
     check: `<svg class="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>`,
     rotateCcw: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`,
     pencil: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>`,
     trash2: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
     grip: `<svg class="grip-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/></svg>`,
-    download: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`
+    download: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>`,
+    spinner: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.75s" repeatCount="indefinite"/></path></svg>`
   };
 
   const DHCP_ID = '__dhcp__';
@@ -1363,11 +1512,13 @@
     startMinimized: false,
     launchAtStartup: false,
     resolveCheckDomain: 'cloudflare.com',
-    adapterLabel: 'Auto (Wi-Fi) · Admin',
+    adapterLabel: 'Auto (Wi-Fi)',
     activeLatency: undefined, // undefined = not probed, null = timeout, number = ms
     activeResolveStatus: null, // 'ok' | 'blocked' | 'no_answer' | 'timeout' | null
     activeResolvedIp: null,
     probingActive: false,
+    profileProbes: {},
+    pingingAll: false,
     updateState: { status: 'idle', latestVersion: null, downloadUrl: null, message: null },
     statusMessage: 'System Default (DHCP)',
     statusIsError: false,
@@ -1465,27 +1616,27 @@
       return {
         text: 'Timeout',
         cls: 'ping-timeout',
-        title: `Timeout resolving ${host} · Click to retest`,
+        title: `Timeout resolving ${host}`,
       };
     }
     if (resolveStatus === 'blocked') {
       return {
         text: 'Blocked',
         cls: 'ping-timeout',
-        title: `Blocked: ${host} → ${resolvedIp || '0.0.0.0'} · Click to retest`,
+        title: `Blocked: ${host} → ${resolvedIp || '0.0.0.0'}`,
       };
     }
     if (resolveStatus === 'no_answer') {
       return {
         text: 'No IP',
         cls: 'ping-slow',
-        title: `No A record for ${host} · Click to retest`,
+        title: `No A record for ${host}`,
       };
     }
     const cls = ms <= 18 ? 'ping-fast' : ms <= 27 ? 'ping-medium' : 'ping-slow';
     const title = resolvedIp
-      ? `${host} → ${resolvedIp} · Click to retest`
-      : `Click to retest ${host} (port 53)`;
+      ? `${host} → ${resolvedIp}`
+      : `Resolved ${host} (port 53)`;
     return { text: `${ms} ms`, cls, title };
   }
 
@@ -1660,7 +1811,11 @@
     activeTooltipHiders.add(hide);
     btnWrap.addEventListener('mouseenter', show);
     btnWrap.addEventListener('mouseleave', hide);
-    btn.addEventListener('focus', show);
+    btnWrap.addEventListener('pointerdown', hide);
+    btn.addEventListener('pointerdown', hide);
+    btn.addEventListener('focus', () => {
+      if (btn.matches(':focus-visible')) show();
+    });
     btn.addEventListener('blur', hide);
   }
 
@@ -1706,6 +1861,26 @@
     };
 
     if (viewMode === 'servers') {
+      addControl(
+        'btn-ping-all',
+        'Ping all DNS servers',
+        appState.pingingAll ? 'Pinging DNS...' : 'Ping all DNS',
+        appState.pingingAll ? ICONS.pingSpinner : ICONS.activity,
+        false,
+        () => {
+          if (appState.pingingAll || appState.profiles.length === 0) return;
+          playSound('click');
+          appState.pingingAll = true;
+          appState.profileProbes = {};
+          syncPingAllButton();
+          updateAllPingsInPlace();
+          postIpc({ type: 'pingAll' });
+        }
+      );
+      const pingBtn = document.getElementById('btn-ping-all');
+      if (pingBtn) {
+        pingBtn.disabled = appState.pingingAll || appState.profiles.length === 0;
+      }
       addControl('btn-add', 'Add custom DNS', 'Add DNS (Ctrl+N)', ICONS.plus, false, () => {
         playSound('click');
         openAddForm('servers');
@@ -1764,6 +1939,7 @@
   let lastActiveProfileId = null;
 
   function transitionView(nextView, beforeEnter) {
+    activeTooltipHiders.forEach((hide) => hide());
     if (viewTransitionTimer) {
       clearTimeout(viewTransitionTimer);
       viewTransitionTimer = null;
@@ -1790,11 +1966,11 @@
     const prevList = document.getElementById('dns-list');
     const prevScroll = prevList ? prevList.scrollTop : 0;
 
-    // Capture active indicator position so the green bar glides smoothly to the newly selected row
-    let prevBarTop = null;
+    // Capture active card position so the rounded highlight glides smoothly to the newly selected row
+    let prevCardTop = null;
     if (prevList && viewMode === 'servers') {
-      const prevBar = prevList.querySelector('.active-bar');
-      if (prevBar) prevBarTop = prevBar.getBoundingClientRect().top;
+      const prevCard = prevList.querySelector('.active-card');
+      if (prevCard) prevCardTop = prevCard.getBoundingClientRect().top;
     }
 
     if (viewMode === 'settings') {
@@ -1802,7 +1978,7 @@
     } else if (viewMode === 'add-dns') {
       renderFormView(main, animateView);
     } else {
-      renderServersView(main, animateView, prevScroll, prevBarTop);
+      renderServersView(main, animateView, prevScroll, prevCardTop);
     }
   }
 
@@ -1977,26 +2153,75 @@
     postIpc({ type: 'activateProfile', id: targetId });
   }
 
-  function updateActivePingInPlace() {
-    const activeId = appState.activeProfileId;
-    if (!activeId) return false;
-    const pingBtn = document.querySelector(`.dns-row[data-profile-id="${CSS.escape(activeId)}"] .ping-btn`);
-    if (!pingBtn) return false;
-    const lat = latencyInfo(
-      appState.activeLatency,
-      appState.probingActive,
-      appState.activeResolveStatus,
-      appState.activeResolvedIp,
-      appState.resolveCheckDomain
-    );
-    pingBtn.className = `ping-btn ${lat.cls}`;
-    pingBtn.textContent = lat.text;
-    pingBtn.title = lat.title;
-    pingBtn.setAttribute('aria-label', lat.title);
-    if (!appState.probingActive && justActivatedId === activeId) {
-      holdActivePing(activeId, 2400);
+  function syncPingAllButton() {
+    const pingBtn = document.getElementById('btn-ping-all');
+    if (!pingBtn) return;
+    pingBtn.disabled = appState.pingingAll || appState.profiles.length === 0;
+    pingBtn.innerHTML = appState.pingingAll ? ICONS.pingSpinner : ICONS.activity;
+    const tip = pingBtn.parentElement && pingBtn.parentElement.querySelector('.tooltip');
+    if (tip) {
+      tip.textContent = appState.pingingAll ? 'Pinging DNS...' : 'Ping all DNS';
     }
+  }
+
+  function getRowLatencyInfo(profileId, isActive) {
+    if (isActive) {
+      return latencyInfo(
+        appState.activeLatency,
+        appState.probingActive,
+        appState.activeResolveStatus,
+        appState.activeResolvedIp,
+        appState.resolveCheckDomain
+      );
+    }
+    const probe = appState.profileProbes && appState.profileProbes[profileId];
+    if (probe) {
+      return latencyInfo(
+        probe.rttMs,
+        false,
+        probe.status,
+        probe.resolvedIp,
+        appState.resolveCheckDomain
+      );
+    }
+    if (appState.pingingAll) {
+      return latencyInfo(undefined, true, null, null, appState.resolveCheckDomain);
+    }
+    return null;
+  }
+
+  function updateAllPingsInPlace() {
+    const list = document.getElementById('dns-list');
+    if (!list) return false;
+    const rows = list.querySelectorAll('.dns-row[data-profile-id]');
+    if (!rows.length && appState.profiles.length > 0) return false;
+    rows.forEach((row) => {
+      const id = row.dataset.profileId;
+      const isActive = appState.activeProfileId === id;
+      const statusEl = row.querySelector('.row-status');
+      if (!statusEl) return;
+      const lat = getRowLatencyInfo(id, isActive);
+      let pingEl = statusEl.querySelector('.ping-badge');
+      if (lat) {
+        if (!pingEl) {
+          pingEl = document.createElement('span');
+          statusEl.insertBefore(pingEl, statusEl.firstChild);
+        }
+        pingEl.className = `ping-badge ${lat.cls}`;
+        pingEl.textContent = lat.text;
+        pingEl.title = lat.title;
+      } else if (pingEl) {
+        pingEl.remove();
+      }
+      if (isActive && !appState.probingActive && justActivatedId === id) {
+        holdActivePing(id, 2400);
+      }
+    });
     return true;
+  }
+
+  function updateActivePingInPlace() {
+    return updateAllPingsInPlace();
   }
 
   let activeScrollObserver = null;
@@ -2020,7 +2245,7 @@
     setTimeout(sync, 170);
   }
 
-  function renderServersView(main, animateView, prevScroll, prevBarTop) {
+  function renderServersView(main, animateView, prevScroll, prevCardTop) {
     const visible = appState.profiles;
     const activeChanged = appState.activeProfileId !== lastActiveProfileId;
     lastActiveProfileId = appState.activeProfileId;
@@ -2037,7 +2262,7 @@
     dhcpRow.className = `dns-row ${dhcpActive ? 'active' : ''} ${focusedNavId === DHCP_ID ? 'kb-focused' : ''}`;
     dhcpRow.dataset.navId = DHCP_ID;
     dhcpRow.innerHTML = `
-      ${dhcpActive ? '<span class="active-bar" aria-hidden="true"></span>' : ''}
+      ${dhcpActive ? '<span class="active-card" aria-hidden="true"></span>' : ''}
       <button type="button" class="dhcp-btn" aria-pressed="${dhcpActive}">
         <div class="row-info">
           <div class="row-name">System Default (DHCP)</div>
@@ -2063,23 +2288,14 @@
       };
       list.appendChild(empty);
     } else {
-      visible.forEach((p, idx) => {
+      visible.forEach((p) => {
         const isActive = appState.activeProfileId === p.id;
-        const isLast = idx === visible.length - 1;
         const ips = p.secondary_v4 ? `${p.primary_v4} · ${p.secondary_v4}` : p.primary_v4;
-        const lat = isActive
-          ? latencyInfo(
-              appState.activeLatency,
-              appState.probingActive,
-              appState.activeResolveStatus,
-              appState.activeResolvedIp,
-              appState.resolveCheckDomain
-            )
-          : null;
+        const lat = getRowLatencyInfo(p.id, isActive);
 
         const isConfirming = confirmingDeleteId === p.id;
         const row = document.createElement('div');
-        row.className = `dns-row ${isActive ? 'active' : ''} ${isLast ? 'last-row' : ''} ${focusedNavId === p.id ? 'kb-focused' : ''} ${justActivatedId === p.id ? 'just-activated' : ''} ${isConfirming ? 'confirming-delete' : ''}`;
+        row.className = `dns-row ${isActive ? 'active' : ''} ${focusedNavId === p.id ? 'kb-focused' : ''} ${justActivatedId === p.id ? 'just-activated' : ''} ${isConfirming ? 'confirming-delete' : ''}`;
         row.dataset.profileId = p.id;
         row.dataset.navId = p.id;
         row.addEventListener('mouseleave', () => {
@@ -2089,7 +2305,7 @@
         });
 
         row.innerHTML = `
-          ${isActive ? '<span class="active-bar" aria-hidden="true"></span>' : ''}
+          ${isActive ? '<span class="active-card" aria-hidden="true"></span>' : ''}
           <button type="button" class="row-main-btn" aria-pressed="${isActive}">
             ${ICONS.grip}
             <div class="row-info">
@@ -2103,12 +2319,10 @@
             <div class="row-actions">
               ${renderRowActionsHtml(p, isConfirming)}
             </div>
-            ${isActive ? `
-              <div class="row-status">
-                <button type="button" class="ping-btn ${lat.cls}" title="${escHtml(lat.title)}" aria-label="${escHtml(lat.title)}">${escHtml(lat.text)}</button>
-                <span class="check-badge ${activeChanged ? 'check-pre-enter' : ''}">${ICONS.check}</span>
-              </div>
-            ` : ''}
+            <div class="row-status">
+              ${lat ? `<span class="ping-badge ${lat.cls}" title="${escHtml(lat.title)}">${escHtml(lat.text)}</span>` : ''}
+              ${isActive ? `<span class="check-badge ${activeChanged ? 'check-pre-enter' : ''}">${ICONS.check}</span>` : ''}
+            </div>
           </div>
         `;
 
@@ -2127,14 +2341,6 @@
         });
 
         bindRowActionHandlers(row, p, isConfirming);
-        const pingBtn = row.querySelector('.ping-btn');
-        if (pingBtn) {
-          pingBtn.onclick = (ev) => {
-            ev.stopPropagation();
-            playSound('click');
-            postIpc({ type: 'probeActive' });
-          };
-        }
 
         list.appendChild(row);
       });
@@ -2157,14 +2363,14 @@
       }
     }
 
-    if (!animateView && prevBarTop !== null && activeChanged) {
-      const nextBar = list.querySelector('.active-bar');
-      if (nextBar && typeof nextBar.animate === 'function') {
-        const barDy = prevBarTop - nextBar.getBoundingClientRect().top;
-        if (Math.abs(barDy) >= 1) {
-          nextBar.animate(
-            [{ transform: `translateY(${barDy}px)` }, { transform: 'translateY(0)' }],
-            { duration: 280, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
+    if (!animateView && prevCardTop !== null && activeChanged) {
+      const nextCard = list.querySelector('.active-card');
+      if (nextCard && typeof nextCard.animate === 'function') {
+        const cardDy = prevCardTop - nextCard.getBoundingClientRect().top;
+        if (Math.abs(cardDy) >= 1) {
+          nextCard.animate(
+            [{ transform: `translateY(${cardDy}px)` }, { transform: 'translateY(0)' }],
+            { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
           );
         }
       }
@@ -2242,13 +2448,14 @@
 
       if (nextTarget !== targetIdx) {
         targetIdx = nextTarget;
+        const rowStep = rows.length > 1 ? slotTops[1] - slotTops[0] : dragHeight;
         rows.forEach((other, i) => {
           if (i === dragIdx) return;
           let shift = 0;
           if (targetIdx > dragIdx && i > dragIdx && i <= targetIdx) {
-            shift = -dragHeight;
+            shift = -rowStep;
           } else if (targetIdx < dragIdx && i < dragIdx && i >= targetIdx) {
-            shift = dragHeight;
+            shift = rowStep;
           }
           other.style.transform = shift === 0 ? 'translate3d(0, 0, 0)' : `translate3d(0, ${shift}px, 0)`;
         });
@@ -2412,7 +2619,8 @@
       }
       return;
     }
-    slotEl.innerHTML = `<button type="button" class="settings-action-btn" id="settings-check-update" ${u.status === 'checking' ? 'disabled' : ''}>${u.status === 'checking' ? 'Checking...' : 'Check'}</button>`;
+    const checking = u.status === 'checking';
+    slotEl.innerHTML = `<button type="button" class="settings-action-btn" id="settings-check-update" aria-label="${checking ? 'Checking for updates' : 'Check for updates'}" ${checking ? 'disabled' : ''}>${checking ? ICONS.spinner : 'Check'}</button>`;
     const chkBtn = slotEl.querySelector('#settings-check-update');
     if (chkBtn) {
       chkBtn.onclick = () => {
@@ -2651,9 +2859,9 @@
       'f-name': '',
       'f-p4': '',
       'f-s4': 'Optional',
-      'f-p6': appState.enableIpv6 ? 'Optional' : 'Off in Settings',
+      'f-p6': appState.enableIpv6 ? 'Optional' : '',
       'f-s6': 'Optional',
-      'f-doh': appState.enableDoh ? 'Optional' : 'Off in Settings',
+      'f-doh': appState.enableDoh ? 'Optional' : '',
     };
 
     wrap.innerHTML = `
@@ -2686,47 +2894,54 @@
 
           <div>
             <button type="button" class="adv-toggle-btn" id="btn-adv" aria-expanded="${showAdvanced}">
-              ${showAdvanced ? ICONS.minus : ICONS.plus}
+              <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+                <line x1="3" y1="7" x2="11" y2="7" />
+                <line class="adv-plus-v" x1="7" y1="3" x2="7" y2="11" />
+              </svg>
               <span>IPv6 / DoH</span>
             </button>
-            <div class="adv-fields" id="adv-fields" style="display: ${showAdvanced ? 'flex' : 'none'};">
-              <div class="form-row-2col">
-                <div>
-                  <div class="field-label-row">
-                    <label for="f-p6" class="field-label">Primary IPv6</label>
-                    <span id="hint-f-p6" class="field-opt">${defaultHints['f-p6']}</span>
-                  </div>
-                  <input id="f-p6" class="field-input mono" type="text" value="${escHtml(p.primary_v6)}" placeholder="2a07:a8c0::" />
+            <div class="adv-collapse ${showAdvanced ? 'is-open' : ''}" id="adv-collapse" aria-hidden="${!showAdvanced}" ${showAdvanced ? '' : 'inert'}>
+              <div class="adv-collapse-inner">
+                <div class="adv-fields" id="adv-fields">
+                  <div id="adv-ipv6-slot"></div>
+                  <div id="adv-doh-slot"></div>
                 </div>
-                <div>
-                  <div class="field-label-row">
-                    <label for="f-s6" class="field-label">Secondary IPv6</label>
-                    <span id="hint-f-s6" class="field-opt">${defaultHints['f-s6']}</span>
-                  </div>
-                  <input id="f-s6" class="field-input mono" type="text" value="${escHtml(p.secondary_v6)}" placeholder="2a07:a8c1::" />
-                </div>
-              </div>
-              <div>
-                <div class="field-label-row">
-                  <label for="f-doh" class="field-label">DoH template URL</label>
-                  <span id="hint-f-doh" class="field-opt">${defaultHints['f-doh']}</span>
-                </div>
-                <input id="f-doh" class="field-input mono" type="text" value="${escHtml(p.doh_template)}" placeholder="https://dns.nextdns.io/abc123" />
               </div>
             </div>
           </div>
 
           <div>
-            <button type="submit" class="save-btn">Save</button>
+            <button type="submit" class="save-btn" id="btn-save">Save</button>
           </div>
         </form>
       </div>
     `;
 
     const formEl = wrap.querySelector('#dns-form');
+    const saveBtn = wrap.querySelector('#btn-save');
+    const readVal = (id, fallback) => {
+      const el = wrap.querySelector(`#${id}`);
+      return el ? el.value.trim() : String(fallback || '').trim();
+    };
+    const hasFormChanges = () => {
+      if (!editingProfile) return true;
+      return (
+        readVal('f-name', p.name) !== String(editingProfile.name || '').trim() ||
+        readVal('f-p4', p.primary_v4) !== String(editingProfile.primary_v4 || '').trim() ||
+        readVal('f-s4', p.secondary_v4) !== String(editingProfile.secondary_v4 || '').trim() ||
+        readVal('f-p6', p.primary_v6) !== String(editingProfile.primary_v6 || '').trim() ||
+        readVal('f-s6', p.secondary_v6) !== String(editingProfile.secondary_v6 || '').trim() ||
+        readVal('f-doh', p.doh_template) !== String(editingProfile.doh_template || '').trim()
+      );
+    };
+    const syncSaveDisabled = () => {
+      if (saveBtn) saveBtn.disabled = Boolean(editingProfile) && !hasFormChanges();
+    };
+
     const setFieldError = (inputId, msg) => {
       const inp = wrap.querySelector(`#${inputId}`);
       const hint = wrap.querySelector(`#hint-${inputId}`);
+      const offBtn = wrap.querySelector(`[data-off-btn="${inputId}"]`);
       if (!inp || !hint) return;
       if (msg) {
         inp.classList.add('is-invalid');
@@ -2736,6 +2951,7 @@
         hint.classList.remove('is-empty');
         hint.classList.add('is-error');
         hint.setAttribute('role', 'alert');
+        if (offBtn) offBtn.style.display = 'none';
       } else {
         inp.classList.remove('is-invalid');
         inp.removeAttribute('aria-invalid');
@@ -2745,22 +2961,212 @@
         hint.classList.remove('is-error');
         hint.classList.toggle('is-empty', !fallback);
         hint.removeAttribute('role');
+        if (offBtn) offBtn.style.display = '';
+      }
+    };
+
+    const bindInputListeners = (rootEl) => {
+      rootEl.querySelectorAll('input').forEach((inp) => {
+        inp.addEventListener('input', () => {
+          setFieldError(inp.id, null);
+          syncSaveDisabled();
+        });
+      });
+    };
+
+    const formScrollEl = wrap.querySelector('.form-scroll');
+    let cancelFormScrollGlide = null;
+    const glideFormScroll = (mode = 'track', durationMs = 340) => {
+      if (cancelFormScrollGlide) cancelFormScrollGlide();
+      const btn = wrap.querySelector('#btn-adv');
+      if (!formScrollEl || !btn) return;
+      const getDesired = () => {
+        const maxScroll = Math.max(0, formScrollEl.scrollHeight - formScrollEl.clientHeight);
+        return Math.min(maxScroll, Math.max(0, btn.offsetTop - 10));
+      };
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        formScrollEl.scrollTo({ top: getDesired(), behavior: 'instant' });
+        updateScrollFade(formScrollEl);
+        return;
+      }
+      const startScroll = formScrollEl.scrollTop;
+      const startTime = performance.now();
+      let rafId = 0;
+      let active = true;
+      const stop = () => {
+        if (!active) return;
+        active = false;
+        cancelAnimationFrame(rafId);
+        formScrollEl.removeEventListener('wheel', stop);
+        formScrollEl.removeEventListener('pointerdown', stop);
+        formScrollEl.removeEventListener('touchstart', stop);
+        if (cancelFormScrollGlide === stop) cancelFormScrollGlide = null;
+      };
+      cancelFormScrollGlide = stop;
+      formScrollEl.addEventListener('wheel', stop, { passive: true });
+      formScrollEl.addEventListener('pointerdown', stop, { passive: true });
+      formScrollEl.addEventListener('touchstart', stop, { passive: true });
+      const step = (now) => {
+        if (!active || !formScrollEl.isConnected) {
+          stop();
+          return;
+        }
+        const t = Math.min(1, (now - startTime) / durationMs);
+        const target = getDesired();
+        if (mode === 'track') {
+          if (target > formScrollEl.scrollTop) {
+            formScrollEl.scrollTo({ top: target, behavior: 'instant' });
+            updateScrollFade(formScrollEl);
+          }
+        } else if (target > startScroll) {
+          const eased = t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+          formScrollEl.scrollTo({ top: startScroll + (target - startScroll) * eased, behavior: 'instant' });
+          updateScrollFade(formScrollEl);
+        }
+        if (t < 1) {
+          rafId = requestAnimationFrame(step);
+        } else {
+          updateScrollFade(formScrollEl);
+          stop();
+        }
+      };
+      rafId = requestAnimationFrame(step);
+    };
+
+    const renderIpv6Slot = (focusInput = false) => {
+      const slot = wrap.querySelector('#adv-ipv6-slot');
+      if (!slot) return;
+      const curP6 = wrap.querySelector('#f-p6') ? wrap.querySelector('#f-p6').value : p.primary_v6;
+      const curS6 = wrap.querySelector('#f-s6') ? wrap.querySelector('#f-s6').value : p.secondary_v6;
+      defaultHints['f-p6'] = appState.enableIpv6 ? 'Optional' : '';
+      const showInputs = appState.enableIpv6 || Boolean(curP6 || curS6);
+      if (showInputs) {
+        slot.innerHTML = `
+          <div class="form-row-2col ${focusInput ? 'adv-slot-reveal' : ''}">
+            <div>
+              <div class="field-label-row">
+                <label for="f-p6" class="field-label">Primary IPv6</label>
+                <span id="hint-f-p6" class="field-opt ${appState.enableIpv6 ? '' : 'is-empty'}">${defaultHints['f-p6']}</span>
+                ${appState.enableIpv6 ? '' : '<button type="button" class="adv-enable-btn compact" data-enable-setting="enableIpv6" data-off-btn="f-p6" aria-label="Enable IPv6 DNS">Enable</button>'}
+              </div>
+              <input id="f-p6" class="field-input mono" type="text" value="${escHtml(curP6)}" placeholder="2a07:a8c0::" />
+            </div>
+            <div>
+              <div class="field-label-row">
+                <label for="f-s6" class="field-label">Secondary IPv6</label>
+                <span id="hint-f-s6" class="field-opt">${defaultHints['f-s6']}</span>
+              </div>
+              <input id="f-s6" class="field-input mono" type="text" value="${escHtml(curS6)}" placeholder="2a07:a8c1::" />
+            </div>
+          </div>
+        `;
+        bindInputListeners(slot);
+      } else {
+        slot.innerHTML = `
+          <div class="adv-off-row">
+            <span>IPv6 DNS</span>
+            <button type="button" class="adv-enable-btn" data-enable-setting="enableIpv6" aria-label="Enable IPv6 DNS">Enable</button>
+          </div>
+        `;
+      }
+      const enableBtn = slot.querySelector('[data-enable-setting="enableIpv6"]');
+      if (enableBtn) {
+        enableBtn.onclick = () => {
+          appState.enableIpv6 = true;
+          playSound('toggleOn');
+          postIpc({ type: 'toggleSetting', key: 'enableIpv6', value: true });
+          renderIpv6Slot(true);
+        };
+      }
+      updateScrollFade(formScrollEl);
+      if (focusInput) {
+        const revealEl = slot.querySelector('.adv-slot-reveal');
+        if (revealEl) {
+          requestAnimationFrame(() => revealEl.classList.add('is-shown'));
+        }
+        glideFormScroll('ease', 220);
+        const p6Input = slot.querySelector('#f-p6');
+        if (p6Input) {
+          p6Input.focus({ preventScroll: true });
+        }
+      }
+    };
+
+    const renderDohSlot = (focusInput = false) => {
+      const slot = wrap.querySelector('#adv-doh-slot');
+      if (!slot) return;
+      const curDoh = wrap.querySelector('#f-doh') ? wrap.querySelector('#f-doh').value : p.doh_template;
+      defaultHints['f-doh'] = appState.enableDoh ? 'Optional' : '';
+      const showInput = appState.enableDoh || Boolean(curDoh);
+      if (showInput) {
+        slot.innerHTML = `
+          <div class="${focusInput ? 'adv-slot-reveal' : ''}">
+            <div class="field-label-row">
+              <label for="f-doh" class="field-label">DoH template URL</label>
+              <span id="hint-f-doh" class="field-opt ${appState.enableDoh ? '' : 'is-empty'}">${defaultHints['f-doh']}</span>
+              ${appState.enableDoh ? '' : '<button type="button" class="adv-enable-btn compact" data-enable-setting="enableDoh" data-off-btn="f-doh" aria-label="Enable DNS-over-HTTPS">Enable</button>'}
+            </div>
+            <input id="f-doh" class="field-input mono" type="text" value="${escHtml(curDoh)}" placeholder="https://dns.nextdns.io/abc123" />
+          </div>
+        `;
+        bindInputListeners(slot);
+      } else {
+        slot.innerHTML = `
+          <div class="adv-off-row">
+            <span>DNS-over-HTTPS</span>
+            <button type="button" class="adv-enable-btn" data-enable-setting="enableDoh" aria-label="Enable DNS-over-HTTPS">Enable</button>
+          </div>
+        `;
+      }
+      const enableBtn = slot.querySelector('[data-enable-setting="enableDoh"]');
+      if (enableBtn) {
+        enableBtn.onclick = () => {
+          appState.enableDoh = true;
+          playSound('toggleOn');
+          postIpc({ type: 'toggleSetting', key: 'enableDoh', value: true });
+          renderDohSlot(true);
+        };
+      }
+      updateScrollFade(formScrollEl);
+      if (focusInput) {
+        const revealEl = slot.querySelector('.adv-slot-reveal');
+        if (revealEl) {
+          requestAnimationFrame(() => revealEl.classList.add('is-shown'));
+        }
+        glideFormScroll('ease', 220);
+        const dohInput = slot.querySelector('#f-doh');
+        if (dohInput) {
+          dohInput.focus({ preventScroll: true });
+        }
       }
     };
 
     const setAdvancedVisible = (visible) => {
       showAdvanced = visible;
-      const box = wrap.querySelector('#adv-fields');
+      const collapse = wrap.querySelector('#adv-collapse');
       const btn = wrap.querySelector('#btn-adv');
-      box.style.display = showAdvanced ? 'flex' : 'none';
+      collapse.classList.toggle('is-open', showAdvanced);
+      collapse.setAttribute('aria-hidden', String(!showAdvanced));
+      collapse.inert = !showAdvanced;
       btn.setAttribute('aria-expanded', String(showAdvanced));
-      btn.innerHTML = `${showAdvanced ? ICONS.minus : ICONS.plus}<span>IPv6 / DoH</span>`;
-      updateScrollFade(wrap.querySelector('.form-scroll'));
+      if (showAdvanced) {
+        glideFormScroll('track', 340);
+      } else if (cancelFormScrollGlide) {
+        cancelFormScrollGlide();
+      }
+      updateScrollFade(formScrollEl);
     };
 
-    formEl.querySelectorAll('input').forEach((inp) => {
-      inp.addEventListener('input', () => setFieldError(inp.id, null));
+    wrap.querySelector('#adv-collapse').addEventListener('transitionend', (ev) => {
+      if (ev.propertyName === 'grid-template-rows') {
+        updateScrollFade(formScrollEl);
+      }
     });
+
+    bindInputListeners(formEl);
+    renderIpv6Slot(false);
+    renderDohSlot(false);
+    syncSaveDisabled();
 
     wrap.querySelector('#btn-adv').onclick = () => {
       playSound('click');
@@ -2769,15 +3175,16 @@
 
     formEl.onsubmit = (ev) => {
       ev.preventDefault();
+      if (editingProfile && !hasFormChanges()) return;
       const payload = {
         id: editingProfile ? editingProfile.id : null,
-        name: wrap.querySelector('#f-name').value.trim(),
+        name: readVal('f-name', p.name),
         category: editingProfile ? (editingProfile.category || 'Custom') : 'Custom',
-        primary_v4: wrap.querySelector('#f-p4').value.trim(),
-        secondary_v4: wrap.querySelector('#f-s4').value.trim(),
-        primary_v6: wrap.querySelector('#f-p6').value.trim(),
-        secondary_v6: wrap.querySelector('#f-s6').value.trim(),
-        doh_template: wrap.querySelector('#f-doh').value.trim(),
+        primary_v4: readVal('f-p4', p.primary_v4),
+        secondary_v4: readVal('f-s4', p.secondary_v4),
+        primary_v6: readVal('f-p6', p.primary_v6),
+        secondary_v6: readVal('f-s6', p.secondary_v6),
+        doh_template: readVal('f-doh', p.doh_template),
       };
 
       const errors = {
@@ -2934,6 +3341,8 @@
     const prevResolveStatus = appState.activeResolveStatus;
     const prevResolvedIp = appState.activeResolvedIp;
     const prevProbing = appState.probingActive;
+    const prevPingingAll = appState.pingingAll;
+    const prevProfileProbesJson = JSON.stringify(appState.profileProbes || {});
     const prevDomain = appState.resolveCheckDomain;
     const becameError = Boolean(next.statusIsError) && !appState.statusIsError;
 
@@ -2958,10 +3367,16 @@
         appState.activeResolveStatus !== prevResolveStatus ||
         appState.activeResolvedIp !== prevResolvedIp ||
         appState.probingActive !== prevProbing ||
+        appState.pingingAll !== prevPingingAll ||
+        JSON.stringify(appState.profileProbes || {}) !== prevProfileProbesJson ||
         appState.resolveCheckDomain !== prevDomain;
 
       applyTheme(animateTheme);
-      renderHeader();
+      if (profilesChanged || !document.getElementById('btn-ping-all')) {
+        renderHeader();
+      } else if (appState.pingingAll !== prevPingingAll) {
+        syncPingAllButton();
+      }
       if (profilesChanged || activeChanged || !document.getElementById('dns-list')) {
         renderBody(false);
       } else if (probeChanged && !updateActivePingInPlace()) {
