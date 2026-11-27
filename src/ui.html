@@ -52,10 +52,16 @@
     --seg-border: rgba(255, 255, 255, 0.09);
     --seg-active-bg: #2F343E;
     --seg-active-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 1px 2px rgba(0, 0, 0, 0.22);
-    --switch-off-bg: #343944;
-    --switch-off-thumb: #A4ACB9;
+    --switch-off-bg: #14161A;
+    --switch-off-border: rgba(255, 255, 255, 0.16);
+    --switch-off-hover-border: rgba(255, 255, 255, 0.28);
+    --switch-off-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.36);
+    --switch-off-thumb: #B8BFC9;
+    --switch-off-hover-thumb: #DDE1E8;
     --switch-on-bg: #F1F3F6;
-    --switch-on-thumb: #17191D;
+    --switch-on-hover-bg: #FFFFFF;
+    --switch-on-thumb: #15171B;
+    --switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
     --title-divider: rgba(255, 255, 255, 0.12);
     --kb-ring: rgba(255, 255, 255, 0.28);
     --scroll-thumb: rgba(255, 255, 255, 0.1);
@@ -109,10 +115,16 @@
     --seg-border: rgba(23, 23, 23, 0.08);
     --seg-active-bg: #FFFFFF;
     --seg-active-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
-    --switch-off-bg: #D4D4D8;
+    --switch-off-bg: #E4E4E7;
+    --switch-off-border: rgba(23, 23, 23, 0.14);
+    --switch-off-hover-border: rgba(23, 23, 23, 0.24);
+    --switch-off-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
     --switch-off-thumb: #FFFFFF;
+    --switch-off-hover-thumb: #FFFFFF;
     --switch-on-bg: #171717;
+    --switch-on-hover-bg: #27272A;
     --switch-on-thumb: #FFFFFF;
+    --switch-thumb-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     --title-divider: rgba(23, 23, 23, 0.12);
     --kb-ring: rgba(23, 23, 23, 0.22);
     --scroll-thumb: rgba(23, 23, 23, 0.09);
@@ -172,6 +184,20 @@
 
   .app-shell.win-no-transition {
     transition: none !important;
+  }
+
+  html.theme-transitioning .app-shell,
+  html.theme-transitioning .app-shell *:not(.seg-indicator):not(.toggle-switch):not(.toggle-thumb) {
+    transition-property: background-color, color, border-color, box-shadow, fill, stroke !important;
+    transition-duration: 240ms !important;
+    transition-timing-function: var(--ease-unslop) !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html.theme-transitioning .app-shell,
+    html.theme-transitioning .app-shell * {
+      transition-duration: 0ms !important;
+    }
   }
 
   html.suspend-hover .icon-btn:hover {
@@ -785,6 +811,7 @@
 
   /* Segmented Control */
   .seg-control {
+    position: relative;
     display: inline-flex;
     align-items: center;
     padding: 2px;
@@ -794,7 +821,31 @@
     flex-shrink: 0;
   }
 
+  .seg-indicator {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    left: 0;
+    border-radius: 6px;
+    background: var(--seg-active-bg);
+    box-shadow: var(--seg-active-shadow);
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform, width;
+    transition:
+      transform 280ms cubic-bezier(0.34, 1.3, 0.64, 1),
+      width 240ms var(--ease-unslop),
+      background-color 260ms var(--ease-unslop),
+      box-shadow 260ms var(--ease-unslop);
+  }
+
+  .seg-indicator.no-transition {
+    transition: none !important;
+  }
+
   .seg-btn {
+    position: relative;
+    z-index: 1;
     height: 24px;
     padding: 0 9px;
     border: 0;
@@ -805,47 +856,107 @@
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    transition: background-color 150ms var(--ease-unslop), color 150ms var(--ease-unslop), box-shadow 150ms var(--ease-unslop);
+    transition: color 200ms var(--ease-unslop), transform 110ms var(--ease-unslop);
   }
 
   .seg-btn:hover:not(.active) { color: var(--text); }
-
-  .seg-btn.active {
-    background: var(--seg-active-bg);
-    color: var(--text);
-    box-shadow: var(--seg-active-shadow);
-  }
+  .seg-btn:active { transform: scale(0.96); }
+  .seg-btn.active { color: var(--text); }
 
   .seg-btn:focus-visible { outline: 1px solid var(--kb-ring); outline-offset: -1px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .seg-indicator,
+    .seg-btn {
+      transition-duration: 0ms !important;
+    }
+  }
 
   /* Monochrome Pill Toggle Switch */
   .toggle-switch {
     position: relative;
     width: 36px;
     height: 20px;
-    padding: 3px;
-    border-radius: 10px;
+    padding: 2px;
+    border-radius: 9999px;
+    border: 1px solid var(--switch-off-border);
     background: var(--switch-off-bg);
+    box-shadow: var(--switch-off-shadow);
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
-    transition: background-color 150ms var(--ease-unslop);
+    transform: scale(1);
+    transition:
+      background-color 220ms var(--ease-unslop),
+      border-color 220ms var(--ease-unslop),
+      box-shadow 220ms var(--ease-unslop),
+      transform 140ms var(--ease-unslop);
   }
 
-  .toggle-switch.checked { background: var(--switch-on-bg); }
+  .settings-toggle-row:hover .toggle-switch:not(.checked) {
+    border-color: var(--switch-off-hover-border);
+  }
+
+  .settings-toggle-row:hover .toggle-switch:not(.checked) .toggle-thumb {
+    background: var(--switch-off-hover-thumb);
+    transform: translate3d(0, 0, 0) scale(1.07);
+  }
+
+  .toggle-switch.checked {
+    background: var(--switch-on-bg);
+    border-color: var(--switch-on-bg);
+    box-shadow: none;
+  }
+
+  .settings-toggle-row:hover .toggle-switch.checked {
+    background: var(--switch-on-hover-bg);
+    border-color: var(--switch-on-hover-bg);
+  }
+
+  .settings-toggle-row:hover .toggle-switch.checked .toggle-thumb {
+    transform: translate3d(16px, 0, 0) scale(1.07);
+  }
 
   .toggle-thumb {
     width: 14px;
     height: 14px;
     border-radius: 9999px;
     background: var(--switch-off-thumb);
-    transform: translateX(0);
-    transition: transform 150ms var(--ease-unslop), background-color 150ms var(--ease-unslop);
+    box-shadow: var(--switch-thumb-shadow);
+    transform: translate3d(0, 0, 0) scale(1);
+    will-change: transform, width;
+    transition:
+      transform 260ms cubic-bezier(0.34, 1.38, 0.64, 1),
+      width 160ms var(--ease-unslop),
+      background-color 200ms var(--ease-unslop),
+      box-shadow 200ms var(--ease-unslop);
   }
 
   .toggle-switch.checked .toggle-thumb {
     background: var(--switch-on-thumb);
-    transform: translateX(16px);
+    transform: translate3d(16px, 0, 0) scale(1);
+  }
+
+  /* Tactile press compression and directional pill stretch */
+  .settings-toggle-row:active .toggle-switch {
+    transform: scale(0.95);
+  }
+
+  .settings-toggle-row:active .toggle-switch:not(.checked) .toggle-thumb {
+    width: 18px;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  .settings-toggle-row:active .toggle-switch.checked .toggle-thumb {
+    width: 18px;
+    transform: translate3d(12px, 0, 0) scale(1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toggle-switch,
+    .toggle-thumb {
+      transition-duration: 0ms !important;
+    }
   }
 
   .settings-toggle-row input:focus-visible + .toggle-switch {
@@ -987,8 +1098,22 @@
 
   .field-opt {
     font-size: 11px;
+    line-height: 16px;
     font-weight: 400;
     color: var(--text-footer);
+    white-space: nowrap;
+    transition: color 150ms ease, opacity 150ms ease;
+  }
+
+  .field-opt.is-empty {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .field-opt.is-error {
+    font-weight: 500;
+    color: var(--timeout);
+    opacity: 1;
   }
 
   .field-input {
@@ -1015,6 +1140,26 @@
     outline: none;
     border-color: var(--input-focus-border);
     background: var(--input-focus-bg);
+  }
+
+  .field-input.is-invalid {
+    border-color: rgba(229, 72, 77, 0.72);
+    background: rgba(229, 72, 77, 0.06);
+  }
+
+  .field-input.is-invalid:focus {
+    border-color: var(--timeout);
+    background: rgba(229, 72, 77, 0.08);
+  }
+
+  html.light .field-input.is-invalid {
+    border-color: rgba(220, 38, 38, 0.68);
+    background: rgba(220, 38, 38, 0.035);
+  }
+
+  html.light .field-input.is-invalid:focus {
+    border-color: var(--timeout);
+    background: #FFFFFF;
   }
 
   html:not(.light) .field-input {
@@ -1047,12 +1192,6 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-  }
-
-  .form-error {
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--timeout);
   }
 
   .save-btn {
@@ -1298,7 +1437,6 @@
   let formReturnView = 'servers';
   let editingProfile = null;
   let showAdvanced = false;
-  let formError = null;
   let focusedNavId = null;
   let draggingState = null;
   let suppressDragClickUntil = 0;
@@ -1362,15 +1500,30 @@
     return systemThemeQuery ? systemThemeQuery.matches : true;
   }
 
-  function applyTheme() {
-    document.documentElement.classList.toggle('light', !appState.darkMode);
+  let themeTransitionTimer = null;
+  let hasReceivedSync = false;
+
+  function applyTheme(animate = false) {
+    const root = document.documentElement;
+    const nextLight = !appState.darkMode;
+    const changed = root.classList.contains('light') !== nextLight;
+    if (animate && changed) {
+      root.classList.add('theme-transitioning');
+      void root.offsetWidth;
+      if (themeTransitionTimer) clearTimeout(themeTransitionTimer);
+      themeTransitionTimer = setTimeout(() => {
+        root.classList.remove('theme-transitioning');
+        themeTransitionTimer = null;
+      }, 280);
+    }
+    root.classList.toggle('light', nextLight);
   }
 
   if (systemThemeQuery && typeof systemThemeQuery.addEventListener === 'function') {
     systemThemeQuery.addEventListener('change', (ev) => {
       if (appState.themeMode === 'system' && !(window.ipc && typeof window.ipc.postMessage === 'function')) {
         appState.darkMode = ev.matches;
-        applyTheme();
+        applyTheme(true);
       }
     });
   }
@@ -1536,7 +1689,6 @@
         const target = formReturnView;
         transitionView(target, () => {
           editingProfile = null;
-          formError = null;
         });
       };
     } else {
@@ -2270,12 +2422,28 @@
     }
   }
 
-  function syncSettingsControls() {
+  function positionSegIndicator(root, animate) {
+    const seg = root.querySelector('.seg-control');
+    if (!seg) return;
+    const indicator = seg.querySelector('.seg-indicator');
+    const activeBtn = seg.querySelector('button[data-theme-btn].active');
+    if (!indicator || !activeBtn) return;
+    if (!animate) indicator.classList.add('no-transition');
+    indicator.style.width = `${activeBtn.offsetWidth}px`;
+    indicator.style.transform = `translate3d(${activeBtn.offsetLeft}px, 0, 0)`;
+    if (!animate) {
+      void indicator.offsetWidth;
+      indicator.classList.remove('no-transition');
+    }
+  }
+
+  function syncSettingsControls(animateSeg = true) {
     document.querySelectorAll('button[data-theme-btn]').forEach((btn) => {
       const isActive = btn.dataset.themeBtn === appState.themeMode;
       btn.classList.toggle('active', isActive);
       btn.setAttribute('aria-pressed', String(isActive));
     });
+    positionSegIndicator(document, animateSeg);
     const settingMap = {
       soundEffects: appState.soundEffects,
       enableIpv6: appState.enableIpv6,
@@ -2315,6 +2483,7 @@
             <span class="settings-row-sub">Window and tray theme</span>
           </div>
           <div class="seg-control" role="group" aria-label="Appearance">
+            <span class="seg-indicator" aria-hidden="true"></span>
             <button type="button" class="seg-btn ${appState.themeMode === 'system' ? 'active' : ''}" data-theme-btn="system" aria-pressed="${appState.themeMode === 'system'}">System</button>
             <button type="button" class="seg-btn ${appState.themeMode === 'dark' ? 'active' : ''}" data-theme-btn="dark" aria-pressed="${appState.themeMode === 'dark'}">Dark</button>
             <button type="button" class="seg-btn ${appState.themeMode === 'light' ? 'active' : ''}" data-theme-btn="light" aria-pressed="${appState.themeMode === 'light'}">Light</button>
@@ -2371,8 +2540,8 @@
         const nextDark = resolveThemeDark(nextMode);
         appState.themeMode = nextMode;
         appState.darkMode = nextDark;
-        applyTheme();
-        syncSettingsControls();
+        applyTheme(true);
+        syncSettingsControls(true);
         playSound(nextDark ? 'toggleOn' : 'toggleOff');
         postIpc({ type: 'setThemeMode', mode: nextMode });
       };
@@ -2413,6 +2582,7 @@
     });
 
     mountViewPanel(main, wrap, animateView);
+    positionSegIndicator(wrap, false);
     const scrollEl = wrap.querySelector('.settings-scroll');
     if (scrollEl && prevScroll > 0) {
       scrollEl.style.scrollBehavior = 'auto';
@@ -2426,7 +2596,6 @@
     transitionView('add-dns', () => {
       editingProfile = null;
       showAdvanced = false;
-      formError = null;
       formReturnView = returnTo;
     });
   }
@@ -2435,7 +2604,6 @@
     transitionView('add-dns', () => {
       editingProfile = { ...profile };
       showAdvanced = Boolean(profile.primary_v6 || profile.secondary_v6 || profile.doh_template);
-      formError = null;
       formReturnView = 'servers';
     });
   }
@@ -2479,24 +2647,38 @@
       name: '', category: 'Custom', primary_v4: '', secondary_v4: '',
       primary_v6: '', secondary_v6: '', doh_template: ''
     };
+    const defaultHints = {
+      'f-name': '',
+      'f-p4': '',
+      'f-s4': 'Optional',
+      'f-p6': appState.enableIpv6 ? 'Optional' : 'Off in Settings',
+      'f-s6': 'Optional',
+      'f-doh': appState.enableDoh ? 'Optional' : 'Off in Settings',
+    };
 
     wrap.innerHTML = `
       <div class="form-scroll scroll-fade">
-        <form class="dns-form" id="dns-form">
+        <form class="dns-form" id="dns-form" novalidate>
           <div>
-            <label for="f-name" class="field-label mb">Name</label>
+            <div class="field-label-row">
+              <label for="f-name" class="field-label">Name</label>
+              <span id="hint-f-name" class="field-opt is-empty"></span>
+            </div>
             <input id="f-name" class="field-input" type="text" value="${escHtml(p.name)}" placeholder="NextDNS" />
           </div>
 
           <div class="form-row-2col">
             <div>
-              <label for="f-p4" class="field-label mb">Primary IPv4</label>
+              <div class="field-label-row">
+                <label for="f-p4" class="field-label">Primary IPv4</label>
+                <span id="hint-f-p4" class="field-opt is-empty"></span>
+              </div>
               <input id="f-p4" class="field-input mono" type="text" value="${escHtml(p.primary_v4)}" placeholder="45.90.28.0" />
             </div>
             <div>
               <div class="field-label-row">
                 <label for="f-s4" class="field-label">Secondary IPv4</label>
-                <span class="field-opt">Optional</span>
+                <span id="hint-f-s4" class="field-opt">${defaultHints['f-s4']}</span>
               </div>
               <input id="f-s4" class="field-input mono" type="text" value="${escHtml(p.secondary_v4)}" placeholder="45.90.30.0" />
             </div>
@@ -2512,14 +2694,14 @@
                 <div>
                   <div class="field-label-row">
                     <label for="f-p6" class="field-label">Primary IPv6</label>
-                    <span class="field-opt">${appState.enableIpv6 ? 'Optional' : 'Off in Settings'}</span>
+                    <span id="hint-f-p6" class="field-opt">${defaultHints['f-p6']}</span>
                   </div>
                   <input id="f-p6" class="field-input mono" type="text" value="${escHtml(p.primary_v6)}" placeholder="2a07:a8c0::" />
                 </div>
                 <div>
                   <div class="field-label-row">
                     <label for="f-s6" class="field-label">Secondary IPv6</label>
-                    <span class="field-opt">Optional</span>
+                    <span id="hint-f-s6" class="field-opt">${defaultHints['f-s6']}</span>
                   </div>
                   <input id="f-s6" class="field-input mono" type="text" value="${escHtml(p.secondary_v6)}" placeholder="2a07:a8c1::" />
                 </div>
@@ -2527,14 +2709,13 @@
               <div>
                 <div class="field-label-row">
                   <label for="f-doh" class="field-label">DoH template URL</label>
-                  <span class="field-opt">${appState.enableDoh ? 'Optional' : 'Off in Settings'}</span>
+                  <span id="hint-f-doh" class="field-opt">${defaultHints['f-doh']}</span>
                 </div>
                 <input id="f-doh" class="field-input mono" type="text" value="${escHtml(p.doh_template)}" placeholder="https://dns.nextdns.io/abc123" />
               </div>
             </div>
           </div>
 
-          <p class="form-error" id="form-error" style="display: ${formError ? 'block' : 'none'};">${formError ? escHtml(formError) : ''}</p>
           <div>
             <button type="submit" class="save-btn">Save</button>
           </div>
@@ -2543,24 +2724,47 @@
     `;
 
     const formEl = wrap.querySelector('#dns-form');
-    const clearErr = () => {
-      formError = null;
-      const errEl = wrap.querySelector('#form-error');
-      errEl.style.display = 'none';
-      errEl.textContent = '';
+    const setFieldError = (inputId, msg) => {
+      const inp = wrap.querySelector(`#${inputId}`);
+      const hint = wrap.querySelector(`#hint-${inputId}`);
+      if (!inp || !hint) return;
+      if (msg) {
+        inp.classList.add('is-invalid');
+        inp.setAttribute('aria-invalid', 'true');
+        inp.setAttribute('aria-describedby', `hint-${inputId}`);
+        hint.textContent = msg;
+        hint.classList.remove('is-empty');
+        hint.classList.add('is-error');
+        hint.setAttribute('role', 'alert');
+      } else {
+        inp.classList.remove('is-invalid');
+        inp.removeAttribute('aria-invalid');
+        inp.removeAttribute('aria-describedby');
+        const fallback = defaultHints[inputId] || '';
+        hint.textContent = fallback;
+        hint.classList.remove('is-error');
+        hint.classList.toggle('is-empty', !fallback);
+        hint.removeAttribute('role');
+      }
     };
-    formEl.querySelectorAll('input').forEach((inp) => inp.addEventListener('input', clearErr));
 
-    wrap.querySelector('#btn-adv').onclick = () => {
-      playSound('click');
-      showAdvanced = !showAdvanced;
+    const setAdvancedVisible = (visible) => {
+      showAdvanced = visible;
       const box = wrap.querySelector('#adv-fields');
       const btn = wrap.querySelector('#btn-adv');
       box.style.display = showAdvanced ? 'flex' : 'none';
       btn.setAttribute('aria-expanded', String(showAdvanced));
       btn.innerHTML = `${showAdvanced ? ICONS.minus : ICONS.plus}<span>IPv6 / DoH</span>`;
-      const scrollEl = wrap.querySelector('.form-scroll');
-      updateScrollFade(scrollEl);
+      updateScrollFade(wrap.querySelector('.form-scroll'));
+    };
+
+    formEl.querySelectorAll('input').forEach((inp) => {
+      inp.addEventListener('input', () => setFieldError(inp.id, null));
+    });
+
+    wrap.querySelector('#btn-adv').onclick = () => {
+      playSound('click');
+      setAdvancedVisible(!showAdvanced);
     };
 
     formEl.onsubmit = (ev) => {
@@ -2576,21 +2780,32 @@
         doh_template: wrap.querySelector('#f-doh').value.trim(),
       };
 
-      let err = null;
-      if (!payload.name) err = 'Name is required.';
-      else if (!isValidIpv4(payload.primary_v4)) err = 'Enter a valid primary IPv4 address (e.g. 45.90.28.0).';
-      else if (payload.secondary_v4 && !isValidIpv4(payload.secondary_v4)) err = 'Secondary IPv4 address is invalid.';
-      else if (payload.primary_v6 && !isValidIpv6(payload.primary_v6)) err = 'Primary IPv6 address is invalid.';
-      else if (payload.secondary_v6 && !isValidIpv6(payload.secondary_v6)) err = 'Secondary IPv6 address is invalid.';
-      else if (!isValidDohUrl(payload.doh_template)) err = 'DoH template must be a valid https:// URL.';
+      const errors = {
+        'f-name': !payload.name ? 'Required' : null,
+        'f-p4': !payload.primary_v4 ? 'Required' : (!isValidIpv4(payload.primary_v4) ? 'Invalid' : null),
+        'f-s4': payload.secondary_v4 && !isValidIpv4(payload.secondary_v4) ? 'Invalid' : null,
+        'f-p6': payload.primary_v6 && !isValidIpv6(payload.primary_v6) ? 'Invalid' : null,
+        'f-s6': payload.secondary_v6 && !isValidIpv6(payload.secondary_v6) ? 'Invalid' : null,
+        'f-doh': !isValidDohUrl(payload.doh_template) ? 'Use https://' : null,
+      };
 
-      if (err) {
+      const order = ['f-name', 'f-p4', 'f-s4', 'f-p6', 'f-s6', 'f-doh'];
+      let firstInvalid = null;
+      for (const id of order) {
+        setFieldError(id, errors[id]);
+        if (!firstInvalid && errors[id]) firstInvalid = id;
+      }
+
+      if (firstInvalid) {
         playSound('error');
-        formError = err;
-        const errEl = wrap.querySelector('#form-error');
-        errEl.textContent = err;
-        errEl.style.display = 'block';
-        updateScrollFade(wrap.querySelector('.form-scroll'));
+        if (firstInvalid === 'f-p6' || firstInvalid === 'f-s6' || firstInvalid === 'f-doh') {
+          if (!showAdvanced) setAdvancedVisible(true);
+        }
+        const targetInput = wrap.querySelector(`#${firstInvalid}`);
+        if (targetInput) {
+          targetInput.focus();
+          targetInput.scrollIntoView({ block: 'nearest' });
+        }
         return;
       }
 
@@ -2598,7 +2813,6 @@
       postIpc({ type: 'saveProfile', profile: payload });
       transitionView('servers', () => {
         editingProfile = null;
-        formError = null;
       });
     };
 
@@ -2664,7 +2878,6 @@
         const target = formReturnView;
         transitionView(target, () => {
           editingProfile = null;
-          formError = null;
         });
       } else if (viewMode === 'settings') {
         playSound('click');
@@ -2714,6 +2927,7 @@
       pendingSyncPayload = next;
       return;
     }
+    const prevDark = appState.darkMode;
     const prevProfilesJson = JSON.stringify(appState.profiles);
     const prevActiveId = appState.activeProfileId;
     const prevLatency = appState.activeLatency;
@@ -2727,6 +2941,8 @@
       appState.activeLatency = undefined;
     }
     Object.assign(appState, next);
+    const animateTheme = hasReceivedSync && prevDark !== appState.darkMode;
+    hasReceivedSync = true;
     if (confirmingDeleteId && !appState.profiles.some((p) => p.id === confirmingDeleteId)) {
       clearConfirmDelete(false);
     }
@@ -2744,7 +2960,7 @@
         appState.probingActive !== prevProbing ||
         appState.resolveCheckDomain !== prevDomain;
 
-      applyTheme();
+      applyTheme(animateTheme);
       renderHeader();
       if (profilesChanged || activeChanged || !document.getElementById('dns-list')) {
         renderBody(false);
@@ -2753,10 +2969,10 @@
       }
       renderFooter();
     } else {
-      applyTheme();
+      applyTheme(animateTheme);
       renderFooter();
       if (viewMode === 'settings') {
-        syncSettingsControls();
+        syncSettingsControls(true);
         const domainInput = document.getElementById('settings-resolve-domain');
         if (domainInput && document.activeElement !== domainInput && appState.resolveCheckDomain) {
           domainInput.value = appState.resolveCheckDomain;
