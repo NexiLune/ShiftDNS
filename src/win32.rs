@@ -127,8 +127,8 @@ fn window_bg_brush(dark_mode: bool) -> usize {
     static LIGHT_BRUSH: OnceLock<usize> = OnceLock::new();
     let cell = if dark_mode { &DARK_BRUSH } else { &LIGHT_BRUSH };
     *cell.get_or_init(|| unsafe {
-        // COLORREF (0x00BBGGRR): #141415 dark / #FFFFFF light prevents bare-HWND white flashes
-        let color: u32 = if dark_mode { 0x00151414 } else { 0x00FFFFFF };
+        // COLORREF (0x00BBGGRR): #1C1E22 dark / #FFFFFF light prevents bare-HWND white flashes
+        let color: u32 = if dark_mode { 0x00221E1C } else { 0x00FFFFFF };
         CreateSolidBrush(color) as usize
     })
 }
@@ -187,9 +187,9 @@ fn configure_window_dwm_hwnd(hwnd: HWND, disable_transitions: bool, dark_mode: b
             &dark_val as *const _ as *const _,
             std::mem::size_of_val(&dark_val) as u32,
         );
-        // Match subtle 1px Windows 11 DWM border color (#262628 dark / #E4E4E7 light in COLORREF 0x00BBGGRR)
+        // Match subtle 1px Windows 11 DWM border color (#2E323B dark / #E4E4E7 light in COLORREF 0x00BBGGRR)
         const DWMWA_BORDER_COLOR: u32 = 34;
-        let border_color: u32 = if dark_mode { 0x00282626 } else { 0x00E7E4E4 };
+        let border_color: u32 = if dark_mode { 0x003B322E } else { 0x00E7E4E4 };
         let _ = DwmSetWindowAttribute(
             hwnd,
             DWMWA_BORDER_COLOR,

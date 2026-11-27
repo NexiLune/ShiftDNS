@@ -309,6 +309,8 @@ struct AppState {
     status_is_error: bool,
     status_revert_at: Option<Instant>,
     tray: Option<TrayController>,
+    tray_retry_at: Option<Instant>,
+    tray_retry_attempts: u8,
     proxy: EventLoopProxy<UserEvent>,
     webview_ready: bool,
     tray_webview_ready: bool,
@@ -351,6 +353,12 @@ impl AppState {
             status_message,
             status_is_error: false,
             status_revert_at: None,
+            tray_retry_at: if tray.is_none() {
+                Some(Instant::now() + Duration::from_secs(1))
+            } else {
+                None
+            },
+            tray_retry_attempts: 0,
             tray,
             proxy,
             webview_ready: false,
@@ -380,7 +388,7 @@ impl AppState {
     ) {
         let dark = self.effective_dark();
         let next_bg = if dark {
-            (20, 20, 21, 255)
+            (28, 30, 34, 255)
         } else {
             (255, 255, 255, 255)
         };
@@ -1276,7 +1284,7 @@ fn main() {
 
     let mut web_context = WebContext::new(Some(config::webview_data_dir()));
     let bg_color = if initial_dark {
-        (20, 20, 21, 255)
+        (28, 30, 34, 255)
     } else {
         (255, 255, 255, 255)
     };
@@ -1321,6 +1329,12 @@ fn main() {
         initial_tray_height,
     );
     state.spawn_refresh_adapters(!hide_on_boot);
+    // Re-sync existing startup task on launch so legacy tasks or relocated binaries self-heal.
+    if state.config.launch_at_startup {
+        std::thread::spawn(|| {
+            let _ = set_windows_startup(true);
+        });
+    }
 
     event_loop.run(move |event, _, control_flow| {
         match event {
@@ -1344,6 +1358,31 @@ fn main() {
                         );
                         state.status_is_error = false;
                         state.sync_webview(&webview);
+                    }
+                }
+                if let Some(deadline) = state.tray_retry_at {
+                    if Instant::now() >= deadline {
+                        match TrayController::new(
+                            &state.config.profiles,
+                            state.config.active_profile_id.as_deref(),
+                            state.config.enable_doh,
+                        ) {
+                            Ok(t) => {
+                                state.tray = Some(t);
+                                state.tray_retry_at = None;
+                                state.sync_tray_icon();
+                            }
+                            Err(_) => {
+                                state.tray_retry_attempts =
+                                    state.tray_retry_attempts.saturating_add(1);
+                                if state.tray_retry_attempts < 30 {
+                                    state.tray_retry_at =
+                                        Some(Instant::now() + Duration::from_secs(1));
+                                } else {
+                                    state.tray_retry_at = None;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1766,12 +1805,14 @@ fn main() {
             _ => {}
         }
 
-        let next_deadline = match (state.status_revert_at, state.main_hide_deadline) {
-            (Some(a), Some(b)) => Some(a.min(b)),
-            (Some(a), None) => Some(a),
-            (None, Some(b)) => Some(b),
-            (None, None) => None,
-        };
+        let next_deadline = [
+            state.status_revert_at,
+            state.main_hide_deadline,
+            state.tray_retry_at,
+        ]
+        .into_iter()
+        .flatten()
+        .min();
         if let Some(deadline) = next_deadline {
             *control_flow = ControlFlow::WaitUntil(deadline);
         } else {

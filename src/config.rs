@@ -398,47 +398,189 @@ impl AppConfig {
     }
 }
 
-/// Registers or removes an elevated Windows Scheduled Task so ShiftDNS can start
-/// cleanly at logon with Administrator rights and `--minimized` without triggering UAC.
-pub fn set_windows_startup(enabled: bool) -> Result<(), String> {
+fn xml_escape(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for ch in input.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&apos;"),
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
+fn encode_utf16_le_bom(text: &str) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(2 + text.len() * 2);
+    bytes.extend_from_slice(&[0xFF, 0xFE]);
+    for unit in text.encode_utf16() {
+        bytes.extend_from_slice(&unit.to_le_bytes());
+    }
+    bytes
+}
+
+fn parse_whoami_sid(stdout: &str) -> Option<String> {
+    let line = stdout.lines().map(str::trim).find(|l| !l.is_empty())?;
+    let trimmed = line.trim_end_matches('"');
+    let sid = trimmed.rsplit('"').next()?.trim();
+    if sid.starts_with("S-1-")
+        && sid.len() > 4
+        && sid
+            .bytes()
+            .all(|b| b.is_ascii_digit() || b == b'-' || b == b'S')
+    {
+        Some(sid.to_string())
+    } else {
+        None
+    }
+}
+
+fn current_windows_user_id() -> Result<String, String> {
+    let mut cmd = Command::new("whoami");
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    if let Ok(output) = cmd.args(["/user", "/fo", "csv", "/nh"]).output() {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if let Some(sid) = parse_whoami_sid(&stdout) {
+                return Ok(sid);
+            }
+        }
+    }
+
+    let user = std::env::var("USERNAME").unwrap_or_default();
+    let domain = std::env::var("USERDOMAIN").unwrap_or_default();
+    if !user.is_empty() && !domain.is_empty() {
+        Ok(format!("{domain}\\{user}"))
+    } else if !user.is_empty() {
+        Ok(user)
+    } else {
+        Err("Could not determine current Windows user.".into())
+    }
+}
+
+fn build_startup_task_xml(user_id: &str, exe_path: &str, working_dir: &str) -> String {
+    let user_xml = xml_escape(user_id);
+    let exe_xml = xml_escape(exe_path);
+    let wd_line = if working_dir.is_empty() {
+        String::new()
+    } else {
+        format!("\r\n      <WorkingDirectory>{}</WorkingDirectory>", xml_escape(working_dir))
+    };
+
+    format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-16\"?>\r\n\
+<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\r\n\
+  <RegistrationInfo>\r\n\
+    <Description>Launch ShiftDNS at Windows logon with administrator privileges.</Description>\r\n\
+  </RegistrationInfo>\r\n\
+  <Triggers>\r\n\
+    <LogonTrigger>\r\n\
+      <Enabled>true</Enabled>\r\n\
+      <UserId>{user_xml}</UserId>\r\n\
+      <Delay>PT3S</Delay>\r\n\
+    </LogonTrigger>\r\n\
+  </Triggers>\r\n\
+  <Principals>\r\n\
+    <Principal id=\"Author\">\r\n\
+      <UserId>{user_xml}</UserId>\r\n\
+      <LogonType>InteractiveToken</LogonType>\r\n\
+      <RunLevel>HighestAvailable</RunLevel>\r\n\
+    </Principal>\r\n\
+  </Principals>\r\n\
+  <Settings>\r\n\
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>\r\n\
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>\r\n\
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>\r\n\
+    <AllowHardTerminate>false</AllowHardTerminate>\r\n\
+    <StartWhenAvailable>true</StartWhenAvailable>\r\n\
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>\r\n\
+    <AllowStartOnDemand>true</AllowStartOnDemand>\r\n\
+    <Enabled>true</Enabled>\r\n\
+    <Hidden>false</Hidden>\r\n\
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>\r\n\
+    <WakeToRun>false</WakeToRun>\r\n\
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\r\n\
+    <Priority>7</Priority>\r\n\
+  </Settings>\r\n\
+  <Actions Context=\"Author\">\r\n\
+    <Exec>\r\n\
+      <Command>{exe_xml}</Command>{wd_line}\r\n\
+    </Exec>\r\n\
+  </Actions>\r\n\
+</Task>\r\n"
+    )
+}
+
+fn schtasks_cmd() -> Command {
     let mut cmd = Command::new("schtasks");
     #[cfg(target_os = "windows")]
     cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd
+}
 
+/// Registers or removes an elevated Windows Scheduled Task via Task Scheduler 1.2 XML so
+/// ShiftDNS starts reliably at logon (including on laptop battery and from paths with spaces)
+/// without triggering UAC, while honoring the user's `start_minimized` setting.
+pub fn set_windows_startup(enabled: bool) -> Result<(), String> {
     if enabled {
         let exe = std::env::current_exe()
             .map_err(|e| format!("Could not resolve executable path: {e}"))?;
-        let task_run = format!("\"{}\" --minimized", exe.display());
-        let output = cmd
-            .args([
-                "/Create",
-                "/TN",
-                "ShiftDNS",
-                "/TR",
-                &task_run,
-                "/SC",
-                "ONLOGON",
-                "/RL",
-                "HIGHEST",
-                "/F",
-            ])
-            .output()
-            .map_err(|e| format!("Failed to invoke schtasks: {e}"))?;
+        let raw_exe = exe.to_string_lossy();
+        let exe_path = raw_exe.strip_prefix(r"\\?\").unwrap_or(&raw_exe);
+        let working_dir = exe
+            .parent()
+            .map(|p| {
+                let s = p.to_string_lossy();
+                s.strip_prefix(r"\\?\").unwrap_or(&s).to_string()
+            })
+            .unwrap_or_default();
+        let user_id = current_windows_user_id()?;
+        let xml = build_startup_task_xml(&user_id, exe_path, &working_dir);
 
+        let xml_path =
+            std::env::temp_dir().join(format!("shiftdns-startup-{}.xml", std::process::id()));
+        fs::write(&xml_path, encode_utf16_le_bom(&xml))
+            .map_err(|e| format!("Failed writing startup task definition: {e}"))?;
+
+        let output = schtasks_cmd()
+            .arg("/Create")
+            .arg("/TN")
+            .arg("ShiftDNS")
+            .arg("/XML")
+            .arg(&xml_path)
+            .arg("/F")
+            .output();
+        let _ = fs::remove_file(&xml_path);
+
+        let output = output.map_err(|e| format!("Failed to invoke schtasks: {e}"))?;
         if !output.status.success() {
-            let err = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Startup registration failed: {}", err.trim()));
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let detail = if !stderr.is_empty() { stderr } else { stdout };
+            return Err(format!("Startup registration failed: {detail}"));
         }
     } else {
-        let output = cmd
+        let query = schtasks_cmd()
+            .args(["/Query", "/TN", "ShiftDNS"])
+            .output()
+            .map_err(|e| format!("Failed to invoke schtasks: {e}"))?;
+        if !query.status.success() {
+            return Ok(());
+        }
+
+        let output = schtasks_cmd()
             .args(["/Delete", "/TN", "ShiftDNS", "/F"])
             .output()
             .map_err(|e| format!("Failed to invoke schtasks: {e}"))?;
         if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            if !stderr.to_lowercase().contains("cannot find") {
-                return Err(format!("Failed to remove startup task: {}", stderr.trim()));
-            }
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            let detail = if !stderr.is_empty() { stderr } else { stdout };
+            return Err(format!("Failed to remove startup task: {detail}"));
         }
     }
 
