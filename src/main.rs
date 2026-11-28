@@ -330,6 +330,8 @@ struct AppState {
     probe_generation: u64,
     profile_probes: HashMap<String, ProfileProbePayload>,
     pinging_all: bool,
+    ping_all_manual: bool,
+    initial_ping_all_done: bool,
     ping_all_generation: u64,
     ping_all_remaining: usize,
     network_reprobe_at: Option<Instant>,
@@ -382,6 +384,8 @@ impl AppState {
             probe_generation: 0,
             profile_probes: HashMap::new(),
             pinging_all: false,
+            ping_all_manual: false,
+            initial_ping_all_done: false,
             ping_all_generation: 0,
             ping_all_remaining: 0,
             network_reprobe_at: None,
@@ -662,15 +666,20 @@ impl AppState {
         });
     }
 
-    fn spawn_ping_all(&mut self, webview: &WebView) {
+    fn spawn_ping_all(&mut self, webview: &WebView, manual: bool) {
         if self.pinging_all || self.config.profiles.is_empty() {
             return;
         }
+        self.initial_ping_all_done = true;
+        self.ping_all_manual = manual;
         self.ping_all_generation = self.ping_all_generation.saturating_add(1);
         let gen = self.ping_all_generation;
         self.profile_probes.clear();
         self.pinging_all = true;
         self.ping_all_remaining = 0;
+        if self.config.active_profile_id.is_some() {
+            self.probing_active = true;
+        }
 
         let domain = self.config.resolve_check_domain.clone();
         let targets: Vec<(String, String)> = self
@@ -714,6 +723,7 @@ impl AppState {
 
         if self.ping_all_remaining == 0 {
             self.pinging_all = false;
+            self.probing_active = false;
         }
         self.sync_webview(webview);
     }
@@ -1237,6 +1247,9 @@ impl AppState {
                 .evaluate_script("window.__shiftdnsAnimateShow && window.__shiftdnsAnimateShow();");
         }
         self.spawn_refresh_adapters(false);
+        if !self.initial_ping_all_done {
+            self.spawn_ping_all(webview, false);
+        }
         self.sync_all_ui(webview, tray_webview);
     }
 
@@ -1648,6 +1661,9 @@ fn main() {
                                     );
                                 }
                                 state.sync_webview(&webview);
+                                if state.main_target_visible && !state.initial_ping_all_done {
+                                    state.spawn_ping_all(&webview, false);
+                                }
                             }
                             IpcMessage::ActivateProfile { id } => match id {
                                 Some(profile_id) => {
@@ -1696,7 +1712,7 @@ fn main() {
                                 state.set_resolve_domain(&domain, &webview);
                             }
                             IpcMessage::PingAll => {
-                                state.spawn_ping_all(&webview);
+                                state.spawn_ping_all(&webview, true);
                             }
                             IpcMessage::CheckUpdate => {
                                 state.check_for_updates(&webview);
@@ -1829,6 +1845,7 @@ fn main() {
                         }
                         if state.config.active_profile_id.is_some()
                             && !state.probing_active
+                            && !state.pinging_all
                             && (force_probe
                                 || network_changed
                                 || active_changed
@@ -1983,23 +2000,27 @@ fn main() {
                         state.ping_all_remaining = state.ping_all_remaining.saturating_sub(1);
                         if state.ping_all_remaining == 0 {
                             state.pinging_all = false;
-                            let best = state
-                                .config
-                                .profiles
-                                .iter()
-                                .filter_map(|p| {
-                                    let probe = state.profile_probes.get(&p.id)?;
-                                    if probe.status != "ok" {
-                                        return None;
-                                    }
-                                    Some((p.name.as_str(), probe.rtt_ms?))
-                                })
-                                .min_by_key(|(_, ms)| *ms)
-                                .map(|(name, ms)| (name.to_string(), ms));
-                            if let Some((name, ms)) = best {
-                                state.set_transient_status(format!("Fastest: {name} ({ms} ms)"));
-                            } else {
-                                state.set_error_status("No DNS servers responded");
+                            if state.ping_all_manual {
+                                let best = state
+                                    .config
+                                    .profiles
+                                    .iter()
+                                    .filter_map(|p| {
+                                        let probe = state.profile_probes.get(&p.id)?;
+                                        if probe.status != "ok" {
+                                            return None;
+                                        }
+                                        Some((p.name.as_str(), probe.rtt_ms?))
+                                    })
+                                    .min_by_key(|(_, ms)| *ms)
+                                    .map(|(name, ms)| (name.to_string(), ms));
+                                if let Some((name, ms)) = best {
+                                    state.set_transient_status(format!(
+                                        "Fastest: {name} ({ms} ms)"
+                                    ));
+                                } else {
+                                    state.set_error_status("No DNS servers responded");
+                                }
                             }
                         }
                         state.sync_webview(&webview);

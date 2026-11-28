@@ -27,9 +27,6 @@
     --icon-hover-bg: #292D36;
     --action-hover-bg: #303540;
     --accent: #4CC38A;
-    --fast: #4CC38A;
-    --medium: #B4BAC6;
-    --slow: #E5A93B;
     --timeout: #E5484D;
     --input-bg: #15171B;
     --input-focus-bg: #191C21;
@@ -95,9 +92,6 @@
     --icon-hover-bg: #ECECEE;
     --action-hover-bg: #E4E4E7;
     --accent: #16A34A;
-    --fast: #16A34A;
-    --medium: #525252;
-    --slow: #B45309;
     --timeout: #DC2626;
     --input-bg: #F4F4F5;
     --input-focus-bg: #FFFFFF;
@@ -733,11 +727,18 @@
     user-select: none;
   }
 
-  .ping-fast { color: var(--fast); }
-  .ping-medium { color: var(--medium); }
-  .ping-slow { color: var(--slow); }
+  .ping-fast, .ping-medium, .ping-slow { color: var(--text-soft); }
   .ping-timeout { color: var(--timeout); }
   .ping-none { color: var(--text-muted); }
+
+  .check-slot {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 
   .check-icon {
     width: 16px;
@@ -1526,26 +1527,49 @@
 
   const SOUND_RECIPES = {
     activate: [
-      { type: 'sine', f0: 494, f1: 523.25, delay: 0, dur: 0.065, gain: 0.06 },
-      { type: 'sine', f0: 783.99, delay: 0.048, dur: 0.135, gain: 0.055 },
-      { type: 'sine', f0: 1567.98, delay: 0.048, dur: 0.075, gain: 0.015 },
+      { type: 'sine', f0: 210, f1: 140, delay: 0, dur: 0.022, gain: 0.024 },
+      { type: 'sine', f0: 523.25, delay: 0.004, dur: 0.072, gain: 0.052 },
+      { type: 'sine', f0: 783.99, delay: 0.044, dur: 0.145, gain: 0.052 },
+      { type: 'sine', f0: 1567.98, delay: 0.044, dur: 0.075, gain: 0.011 },
     ],
     dhcp: [
-      { type: 'sine', f0: 587.33, f1: 523.25, delay: 0, dur: 0.065, gain: 0.055 },
-      { type: 'sine', f0: 440, f1: 392, delay: 0.048, dur: 0.125, gain: 0.05 },
+      { type: 'sine', f0: 659.25, delay: 0, dur: 0.062, gain: 0.048 },
+      { type: 'sine', f0: 440, delay: 0.046, dur: 0.135, gain: 0.046 },
     ],
-    toggleOn: [{ type: 'triangle', f0: 620, f1: 880, delay: 0, dur: 0.042, gain: 0.055 }],
-    toggleOff: [{ type: 'triangle', f0: 560, f1: 390, delay: 0, dur: 0.042, gain: 0.045 }],
-    click: [{ type: 'sine', f0: 920, f1: 510, delay: 0, dur: 0.026, gain: 0.04 }],
+    toggleOn: [
+      { type: 'sine', f0: 1120, f1: 640, delay: 0, dur: 0.016, gain: 0.024 },
+      { type: 'sine', f0: 587.33, f1: 783.99, delay: 0.01, dur: 0.048, gain: 0.042 },
+    ],
+    toggleOff: [
+      { type: 'sine', f0: 860, f1: 490, delay: 0, dur: 0.016, gain: 0.022 },
+      { type: 'sine', f0: 659.25, f1: 466.16, delay: 0.01, dur: 0.046, gain: 0.036 },
+    ],
+    click: [
+      { type: 'sine', f0: 1180, f1: 520, delay: 0, dur: 0.02, gain: 0.028 },
+      { type: 'sine', f0: 250, f1: 145, delay: 0, dur: 0.018, gain: 0.016 },
+    ],
+    ping: [
+      { type: 'sine', f0: 740, f1: 987.77, delay: 0, dur: 0.068, gain: 0.034 },
+      { type: 'sine', f0: 1480, delay: 0.008, dur: 0.055, gain: 0.012 },
+    ],
+    pingDone: [
+      { type: 'sine', f0: 987.77, delay: 0, dur: 0.058, gain: 0.026 },
+      { type: 'sine', f0: 1318.51, delay: 0.038, dur: 0.11, gain: 0.024 },
+    ],
     save: [
-      { type: 'sine', f0: 523.25, delay: 0, dur: 0.075, gain: 0.045 },
-      { type: 'sine', f0: 659.25, delay: 0.042, dur: 0.085, gain: 0.048 },
-      { type: 'sine', f0: 783.99, delay: 0.084, dur: 0.135, gain: 0.055 },
+      { type: 'sine', f0: 523.25, delay: 0, dur: 0.072, gain: 0.038 },
+      { type: 'sine', f0: 659.25, delay: 0.038, dur: 0.082, gain: 0.044 },
+      { type: 'sine', f0: 783.99, delay: 0.076, dur: 0.135, gain: 0.05 },
     ],
-    delete: [{ type: 'triangle', f0: 320, f1: 175, delay: 0, dur: 0.075, gain: 0.055 }],
+    delete: [
+      { type: 'sine', f0: 340, f1: 170, delay: 0, dur: 0.068, gain: 0.046 },
+      { type: 'sine', f0: 520, f1: 260, delay: 0, dur: 0.032, gain: 0.018 },
+    ],
     error: [
-      { type: 'triangle', f0: 230, f1: 195, delay: 0, dur: 0.05, gain: 0.05 },
-      { type: 'triangle', f0: 205, f1: 170, delay: 0.068, dur: 0.06, gain: 0.045 },
+      { type: 'sine', f0: 215, f1: 175, delay: 0, dur: 0.052, gain: 0.048 },
+      { type: 'triangle', f0: 320, f1: 260, delay: 0, dur: 0.036, gain: 0.015 },
+      { type: 'sine', f0: 185, f1: 148, delay: 0.068, dur: 0.064, gain: 0.044 },
+      { type: 'triangle', f0: 275, f1: 220, delay: 0.068, dur: 0.044, gain: 0.013 },
     ],
   };
 
@@ -1561,7 +1585,8 @@
       if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
       const filter = audioCtx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(3800, audioCtx.currentTime);
+      filter.frequency.setValueAtTime(3000, audioCtx.currentTime);
+      if (filter.Q) filter.Q.setValueAtTime(0.7, audioCtx.currentTime);
       filter.connect(audioCtx.destination);
       const base = audioCtx.currentTime + 0.002;
       for (const s of steps) {
@@ -1592,6 +1617,7 @@
   let draggingState = null;
   let suppressDragClickUntil = 0;
   let pendingSyncPayload = null;
+  let manualPingAllInFlight = false;
 
   function postIpc(msg) {
     if (window.ipc && typeof window.ipc.postMessage === 'function') {
@@ -1823,7 +1849,10 @@
 
   function renderHeader() {
     const headerKey = `${viewMode}:${editingProfile ? editingProfile.id || 'edit' : ''}`;
-    if (headerKey === lastHeaderKey) return;
+    if (headerKey === lastHeaderKey) {
+      if (viewMode === 'servers') syncPingAllButton();
+      return;
+    }
     lastHeaderKey = headerKey;
 
     const left = document.getElementById('title-left');
@@ -1869,7 +1898,8 @@
         false,
         () => {
           if (appState.pingingAll || appState.profiles.length === 0) return;
-          playSound('click');
+          playSound('ping');
+          manualPingAllInFlight = true;
           appState.pingingAll = true;
           appState.profileProbes = {};
           syncPingAllButton();
@@ -2273,7 +2303,7 @@
     `;
     dhcpRow.querySelector('button').onclick = () => {
       focusedNavId = null;
-      playSound('dhcp');
+      playSound(appState.activeProfileId === null ? 'click' : 'dhcp');
       applyOptimisticActivation(null);
     };
     list.appendChild(dhcpRow);
@@ -2321,7 +2351,7 @@
             </div>
             <div class="row-status">
               ${lat ? `<span class="ping-badge ${lat.cls}" title="${escHtml(lat.title)}">${escHtml(lat.text)}</span>` : ''}
-              ${isActive ? `<span class="check-badge ${activeChanged ? 'check-pre-enter' : ''}">${ICONS.check}</span>` : ''}
+              <span class="check-slot" aria-hidden="true">${isActive ? `<span class="check-badge ${activeChanged ? 'check-pre-enter' : ''}">${ICONS.check}</span>` : ''}</span>
             </div>
           </div>
         `;
@@ -2336,7 +2366,7 @@
             return;
           }
           focusedNavId = null;
-          playSound('activate');
+          playSound(appState.activeProfileId === p.id ? 'click' : 'activate');
           applyOptimisticActivation(p.id);
         });
 
@@ -3169,8 +3199,9 @@
     syncSaveDisabled();
 
     wrap.querySelector('#btn-adv').onclick = () => {
-      playSound('click');
-      setAdvancedVisible(!showAdvanced);
+      const next = !showAdvanced;
+      playSound(next ? 'toggleOn' : 'toggleOff');
+      setAdvancedVisible(next);
     };
 
     formEl.onsubmit = (ev) => {
@@ -3324,7 +3355,7 @@
       e.preventDefault();
       const targetId = focusedNavId === DHCP_ID ? null : focusedNavId;
       focusedNavId = null;
-      playSound(targetId ? 'activate' : 'dhcp');
+      playSound(appState.activeProfileId === targetId ? 'click' : targetId ? 'activate' : 'dhcp');
       applyOptimisticActivation(targetId);
     }
   });
@@ -3342,6 +3373,7 @@
     const prevResolvedIp = appState.activeResolvedIp;
     const prevProbing = appState.probingActive;
     const prevPingingAll = appState.pingingAll;
+    const prevUpdateStatus = appState.updateState && appState.updateState.status;
     const prevProfileProbesJson = JSON.stringify(appState.profileProbes || {});
     const prevDomain = appState.resolveCheckDomain;
     const becameError = Boolean(next.statusIsError) && !appState.statusIsError;
@@ -3355,8 +3387,18 @@
     if (confirmingDeleteId && !appState.profiles.some((p) => p.id === confirmingDeleteId)) {
       clearConfirmDelete(false);
     }
+    const pingAllFinished = prevPingingAll && !appState.pingingAll && manualPingAllInFlight;
+    if (pingAllFinished) {
+      manualPingAllInFlight = false;
+    }
+    const updateFound =
+      prevUpdateStatus !== 'available' &&
+      appState.updateState &&
+      appState.updateState.status === 'available';
     if (becameError) {
       playSound('error');
+    } else if (pingAllFinished || updateFound) {
+      playSound('pingDone');
     }
 
     if (viewMode === 'servers') {
@@ -3372,9 +3414,9 @@
         appState.resolveCheckDomain !== prevDomain;
 
       applyTheme(animateTheme);
-      if (profilesChanged || !document.getElementById('btn-ping-all')) {
+      if (!document.getElementById('btn-ping-all')) {
         renderHeader();
-      } else if (appState.pingingAll !== prevPingingAll) {
+      } else if (profilesChanged || appState.pingingAll !== prevPingingAll) {
         syncPingAllButton();
       }
       if (profilesChanged || activeChanged || !document.getElementById('dns-list')) {

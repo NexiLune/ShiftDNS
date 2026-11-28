@@ -202,15 +202,19 @@
 
   const TRAY_SOUNDS = {
     activate: [
-      { type: 'sine', f0: 494, f1: 523.25, delay: 0, dur: 0.065, gain: 0.06 },
-      { type: 'sine', f0: 783.99, delay: 0.048, dur: 0.135, gain: 0.055 },
-      { type: 'sine', f0: 1567.98, delay: 0.048, dur: 0.075, gain: 0.015 },
+      { type: 'sine', f0: 210, f1: 140, delay: 0, dur: 0.022, gain: 0.024 },
+      { type: 'sine', f0: 523.25, delay: 0.004, dur: 0.072, gain: 0.052 },
+      { type: 'sine', f0: 783.99, delay: 0.044, dur: 0.145, gain: 0.052 },
+      { type: 'sine', f0: 1567.98, delay: 0.044, dur: 0.075, gain: 0.011 },
     ],
     dhcp: [
-      { type: 'sine', f0: 587.33, f1: 523.25, delay: 0, dur: 0.065, gain: 0.055 },
-      { type: 'sine', f0: 440, f1: 392, delay: 0.048, dur: 0.125, gain: 0.05 },
+      { type: 'sine', f0: 659.25, delay: 0, dur: 0.062, gain: 0.048 },
+      { type: 'sine', f0: 440, delay: 0.046, dur: 0.135, gain: 0.046 },
     ],
-    click: [{ type: 'sine', f0: 920, f1: 510, delay: 0, dur: 0.026, gain: 0.04 }],
+    click: [
+      { type: 'sine', f0: 1180, f1: 520, delay: 0, dur: 0.02, gain: 0.028 },
+      { type: 'sine', f0: 250, f1: 145, delay: 0, dur: 0.018, gain: 0.016 },
+    ],
   };
 
   let audioCtx = null;
@@ -225,7 +229,8 @@
       if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
       const filter = audioCtx.createBiquadFilter();
       filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(3800, audioCtx.currentTime);
+      filter.frequency.setValueAtTime(3000, audioCtx.currentTime);
+      if (filter.Q) filter.Q.setValueAtTime(0.7, audioCtx.currentTime);
       filter.connect(audioCtx.destination);
       const base = audioCtx.currentTime + 0.002;
       for (const s of steps) {
@@ -324,7 +329,7 @@
         clearTrayHoverState();
         if (action === 'activate') {
           const id = btn.dataset.id || null;
-          playSound(id ? 'activate' : 'dhcp');
+          playSound(state.activeProfileId === id ? 'click' : id ? 'activate' : 'dhcp');
           postIpc({ type: 'trayActivate', id });
         } else if (action === 'quit') {
           postIpc({ type: 'trayQuit' });
